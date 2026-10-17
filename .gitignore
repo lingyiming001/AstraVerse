@@ -1,0 +1,19 @@
+# Local and generated files (project-continuity)
+.agents/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.*.example
+!.env.*.sample
+node_modules/
+apps/web/dist/
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+*.tsbuildinfo
+.DS_Store
+.local/

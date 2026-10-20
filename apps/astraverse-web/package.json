@@ -1,0 +1,41 @@
+{
+  "name": "astraverse-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run check:boundaries && tsc -b && vite build",
+    "check": "npm run check:boundaries && tsc --noEmit",
+    "start": "vite preview --host 127.0.0.1 --port 5174 --strictPort",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:scenes": "node --test tests/scene-catalog.test.mjs",
+    "test:watch": "node --test tests/video-source.test.mjs",
+    "test:furniture": "node --test tests/furniture.test.mjs",
+    "test:resources": "node --test tests/resource-limits.test.mjs"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.5",
+    "@react-three/drei": "^10.7.0",
+    "@react-three/fiber": "^9.3.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.468.0",
+    "pixi-live2d-display": "^0.3.1",
+    "pixi.js": "^5.3.12",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.180.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^5.0.3",
+    "typescript": "~5.9.2",
+    "vite": "^7.1.7"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

@@ -31,7 +31,7 @@
 
 ## 4. 技术选型、兼容性与许可
 
-React 19 + TypeScript + Vite 提供类型与快速本地开发；R3F 9 与 React 19 配套，Three.js 渲染、Drei 镜头/粒子；Zustand 负责轻量运行状态。CSS 变量承担当前设计系统，不为 MVP 引入完整 UI 框架。FastAPI/Pydantic 使用同一个模块化进程，httpx 调用兼容 LLM 接口，官方 MCP Python SDK 固定 v1 主版本（`mcp>=1.12,<2`）。npm workspace 有锁文件；未引入 pnpm，避免双锁文件。
+React 19 + TypeScript + Vite 提供类型与快速本地开发；R3F 9 与 React 19 配套，Three.js 渲染、Drei 镜头/粒子；Zustand 负责轻量运行状态。CSS 变量承担当前设计系统，不为 MVP 引入完整 UI 框架。FastAPI/Pydantic 使用同一个模块化进程，httpx 调用兼容 LLM 接口，官方 MCP Python SDK 固定 v1 主版本（`mcp>=1.12,<2`）。前端在自身目录维护 npm 清单与锁文件；后端独立维护 Python 依赖，部署脚本统一放在 deploy/。
 
 React、Three.js、R3F、Drei、Zustand、FastAPI、MCP SDK 采用宽松开源许可，Lucide 为 ISC；发行前应以锁定版本 license 清单复核。Noto Sans SC / DM Sans 字体遵循各自 OFL，使用系统回退。程序化角色与合成音源由项目代码构建，不使用洛天依或其他授权不明资产。用户上传作品的版权需用户自行拥有。
 
@@ -183,7 +183,7 @@ interface Memory { id:string; sourceMessageId:string; text:string; consent:boole
 
 WS 建连发快照，断线 4 秒重连。现有常规 UI 状态主要在浏览器，动作命令上传 API；未做完整多端冲突合并。未来引入 revision、command_id、workspace_id、snapshot/resume cursor、指数退避和幂等执行。
 
-v0.2 新增模型注册/能力路由模块、七类模态适配及关节/表情控制，详细协议见 MODELS_AND_PRESENCE.md。基础 MCP 工具模式来自函数签名与 Literal；参数约束仍由 API 再验证。move 为绝对 x/z，范围 -3..3；animate 四个枚举；scene.load 三个预设；speak 文本 1..1000；其余已实现工具不收参数。15 工具的可执行实现位于 packages/mcp/server.py。
+v0.2 新增模型注册/能力路由模块、七类模态适配及关节/表情控制，详细协议见 MODELS_AND_PRESENCE.md。基础 MCP 工具模式来自函数签名与 Literal；参数约束仍由 API 再验证。move 为绝对 x/z，范围 -3..3；animate 七个枚举（idle/wave/dance/jump/sit/crouch/sleep）；scene.load 三个预设；speak 文本 1..1000；其余已实现工具不收参数。15 工具的可执行实现位于 apps/astraverse/src/astraverse/integrations/mcp/stdio.py。
 
 ## 12. UI/UX 设计系统
 
@@ -206,26 +206,22 @@ v0.2 新增模型注册/能力路由模块、七类模态适配及关节/表情�
 ```text
 AstraVerse/
 ├── apps/
-│   ├── web/
-│   │   ├── src/
-│   │   │   ├── main.tsx       # React 挂载
-│   │   │   ├── App.tsx        # 工作空间、对话、媒体、资源、控制台
-│   │   │   ├── Stage.tsx      # 渲染、程序角色、GLB、输入
-│   │   │   ├── store.ts       # 运行状态与伙伴元数据
-│   │   │   └── style.css      # 设计系统、布局、响应式
-│   │   ├── vite.config.ts    # API / WS 开发代理
-│   │   └── package.json
-│   └── api/
-│       ├── main.py           # API、Schema、执行器、WS、Provider
-│       ├── tests/test_api.py
-│       ├── requirements.txt
-│       └── .env.example
-├── packages/mcp/server.py     # 官方 SDK stdio adapter
-├── docs/ARCHITECTURE.md
-├── deploy/                   # Dockerfile、compose、部署说明
-├── .agents/                  # 被忽略的连续性记录与测试产物
-├── package.json
-├── package-lock.json
+│   ├── astraverse-web/       # React 前端
+│   │   ├── src/{app,features,shared}/
+│   │   ├── public/
+│   │   ├── scripts/          # 前端边界检查、场景资源生成
+│   │   ├── tests/
+│   │   ├── package.json
+│   │   └── package-lock.json
+│   └── astraverse/           # Python 后端
+│       ├── src/astraverse/{api,core,modules,integrations}/
+│       ├── tests/
+│       ├── pyproject.toml
+│       └── requirements.lock.txt
+├── deploy/                   # setup.sh、start-local.sh、local.py、Docker配置
+├── docs/
+├── .agents/                  # 被忽略的协作记录与测试产物
+├── .local/                   # 被忽略的运行数据与服务日志
 └── README.md
 ```
 
@@ -250,7 +246,7 @@ Stage 只处理浏览器渲染，不调用 LLM；store 保持可序列化运行�
 
 设计目标（尚非实测）：桌面 60 FPS、移动至少 30 FPS；基础模型压缩后 <10 MB；首次有效舞台 <3 秒（缓存与网络条件需报告）；动作指令本地 p95 <100ms；断线 5 秒内恢复；Provider 30 秒超时；每工作空间并发 AI 请求 1。当前 DPR 限制 1–1.8、低粒子数、Stage 懒加载，构建产物体积由 build 输出记录；不宣称已满足 FPS 指标。
 
-上传本地校验扩展名/类型/50 MB，GLB 解析异常由边界 UI 提示。仍须为外部不可信资产增加魔数、几何/纹理预算、解码超时与对象 URL 释放。未来服务端资产先隔离、再校验 MIME/魔数/哈希、病毒扫描和解压上限，使用私有对象存储签名 URL。禁止任意磁盘路径、shell 与任意 URL 加载。
+上传本地校验扩展名/类型/可配置单文件上限（默认50 MB，1–2048 MB，当前浏览器持久化），GLB 解析异常由边界 UI 提示。仍须为外部不可信资产增加魔数、几何/纹理预算、解码超时与对象 URL 释放。未来服务端资产先隔离、再校验 MIME/魔数/哈希、病毒扫描和解压上限，使用私有对象存储签名 URL。禁止任意磁盘路径、shell 与任意 URL 加载。
 
 当前后端仅 loopback、WS Origin 白名单；无账号/限流/租户隔离，不能公网服务。生产前需要 JWT/会话 Cookie、CSRF、OAuth 可选、RBAC 工作空间验证、工具配额/审计、密码哈希、按用户隔离记忆、保留与删除策略。API Key 不传前端；日志不记录密钥与聊天全文。公网禁用任意 Provider URL 修改，避免 SSRF；当前只有服务器环境可配置。
 

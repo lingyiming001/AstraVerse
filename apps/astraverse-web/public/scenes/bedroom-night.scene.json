@@ -1,0 +1,31 @@
+{
+  "format": "astraverse-scene-v1",
+  "id": "bedroom-night",
+  "name": "暖灯卧室",
+  "kind": "bedroom",
+  "night": true,
+  "sky": "#33384b",
+  "floor": "#a18c7b",
+  "accent": "#9299bb",
+  "bounds": [
+    -3.5,
+    3.5,
+    -2.6,
+    2.7
+  ],
+  "obstacles": [
+    [
+      -4,
+      -1.4,
+      -3.45,
+      -0.35
+    ],
+    [
+      1.65,
+      3.8,
+      -3.5,
+      -1.2
+    ]
+  ],
+  "source": "Kenney Furniture Kit / Nature Kit (CC0)"
+}

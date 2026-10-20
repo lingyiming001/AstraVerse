@@ -1,0 +1,7 @@
+Arch-chan Live2D model
+Original creator: RavioliMavioli
+Archive: Speykious/arch-chan
+Source: https://github.com/Speykious/arch-chan
+Pinned commit: ed43dcf7e88d56f79d2e42fecb084bf6923f44e0
+License: CC0-1.0 (see LICENSE.md)
+AstraVerse adaptation: canonical model3.json filename; populated the empty EyeBlink group with existing eye-open parameters. Runtime assets otherwise unchanged. Authoring projects omitted. No Cubism Core included. No authored dance motion is provided by this model.

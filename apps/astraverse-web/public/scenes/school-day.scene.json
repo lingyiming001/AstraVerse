@@ -1,0 +1,31 @@
+{
+  "format": "astraverse-scene-v1",
+  "id": "school-day",
+  "name": "晴日教室",
+  "kind": "school",
+  "night": false,
+  "sky": "#e5e9df",
+  "floor": "#c8bba0",
+  "accent": "#a6c1b7",
+  "bounds": [
+    -4,
+    4,
+    -2.7,
+    2.8
+  ],
+  "obstacles": [
+    [
+      -3.9,
+      -1.5,
+      -3.9,
+      -1
+    ],
+    [
+      1.5,
+      3.9,
+      -3.9,
+      -1
+    ]
+  ],
+  "source": "Kenney Furniture Kit / Nature Kit (CC0)"
+}

@@ -1,9 +1,9 @@
 FROM python:3.12-slim
 WORKDIR /app
-COPY apps/api/requirements.lock.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-COPY apps/api /app
-RUN useradd --create-home astra
+COPY apps/astraverse/requirements.lock.txt /app/requirements.lock.txt
+COPY apps/astraverse /app/backend
+RUN pip install --no-cache-dir --constraint requirements.lock.txt /app/backend && useradd --create-home astra && mkdir /app/data && chown astra /app/data
+ENV ASTRAVERSE_PROJECT_ROOT=/app ASTRAVERSE_DATA_DIR=/app/data
 USER astra
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "astraverse.api.application:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -9,11 +9,16 @@ Thumbs.db
 !.env.*.example
 !.env.*.sample
 node_modules/
-apps/web/dist/
+apps/astraverse-web/dist/
 .venv/
 __pycache__/
 .pytest_cache/
-.env
 *.tsbuildinfo
-.DS_Store
 .local/
+
+# Official Cubism Core installed locally under its separate license
+/apps/astraverse-web/public/vendor/live2d/live2dcubismcore.min.js
+
+# Python distribution artifacts
+*.egg-info/
+build/

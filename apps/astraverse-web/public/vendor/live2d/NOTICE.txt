@@ -1,0 +1,15 @@
+AstraVerse Live2D rendering adapter
+
+pixi-live2d-display: Copyright (c) guansss, MIT license (see adjacent LICENSE file).
+PixiJS: MIT license, https://github.com/pixijs/pixijs
+The adapter contains Cubism Framework code, Copyright (c) Live2D Inc. All rights reserved.
+Framework source is governed by the Live2D Open Software License Agreement:
+https://www.live2d.com/eula/live2d-open-software-license-agreement_en.html
+
+Live2D Cubism Core is installed locally from the official hosting source.
+Copyright (c) Live2D Inc. All rights reserved. Its original license header is retained.
+Source/hash: see core-provenance.json. Official download and terms:
+https://www.live2d.com/en/sdk/download/web/
+Core use is subject to the official proprietary license; review the SDK release
+license for AI/chatbot use and publication: https://www.live2d.com/en/sdk/license/
+No Live2D character model assets are bundled. Model licenses remain separate.

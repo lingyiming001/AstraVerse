@@ -1,0 +1,14 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "@/app/App";
+import "@/app/styles/style.css";
+import "@/app/styles/refinement.css";
+import "@/app/styles/companion.css";
+import "@/app/styles/palette.css";
+import "@/features/agents/agent.css";
+import "@/features/chat/chatComposer.css";
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

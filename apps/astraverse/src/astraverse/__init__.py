@@ -1,0 +1,1 @@
+"""AstraVerse backend package."""

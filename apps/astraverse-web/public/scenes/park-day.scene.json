@@ -1,0 +1,31 @@
+{
+  "format": "astraverse-scene-v1",
+  "id": "park-day",
+  "name": "午后公园",
+  "kind": "park",
+  "night": false,
+  "sky": "#c7dfdf",
+  "floor": "#86a67d",
+  "accent": "#e3b5a6",
+  "bounds": [
+    -4.5,
+    4.5,
+    -3.8,
+    3.4
+  ],
+  "obstacles": [
+    [
+      -3.65,
+      -2.75,
+      -3.35,
+      -0.65
+    ],
+    [
+      2.75,
+      3.65,
+      -3.35,
+      -0.65
+    ]
+  ],
+  "source": "Kenney Furniture Kit / Nature Kit (CC0)"
+}

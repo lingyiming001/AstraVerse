@@ -1,0 +1,224 @@
+/* A single writing surface with explicit audio controls. */
+.app.companion-layout .chat-compose .composer-card {
+  display: block;
+  padding: 0;
+  border-radius: 17px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  box-shadow: 0 3px 12px #00000003;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
+  overflow: hidden;
+}
+.app.companion-layout .chat-compose .composer-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--wash);
+}
+.app.companion-layout .chat-compose .composer-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 72px;
+  max-height: 164px;
+  resize: none;
+  outline: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 15px 15px 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.app.companion-layout .chat-compose .composer-input::placeholder {
+  color: var(--muted);
+  opacity: 0.82;
+}
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px 10px;
+}
+.app.companion-layout .composer-toolbar .composer-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.app.companion-layout .composer-toolbar .composer-voice:hover {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.app.companion-layout .composer-toolbar .composer-voice.is-on {
+  background: var(--wash);
+  color: var(--accent);
+  border-color: var(--border);
+}
+.composer-voice i {
+  width: 5px;
+  height: 5px;
+  background: var(--muted);
+  opacity: 0.45;
+  border-radius: 50%;
+  margin-left: 2px;
+}
+.composer-voice.is-on i {
+  background: var(--accent);
+  opacity: 1;
+}
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.app.companion-layout .chat-compose .composer-send {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  transition:
+    transform 0.16s,
+    background 0.16s,
+    opacity 0.16s;
+  box-shadow: none;
+}
+.app.companion-layout .chat-compose .composer-send:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: var(--accent-hover);
+}
+.app.companion-layout .chat-compose .composer-send:disabled {
+  background: var(--surface-soft);
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.app.companion-layout .composer-toolbar .composer-stop {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 10px;
+  padding: 7px;
+}
+.composer-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 13px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--surface);
+  min-height: 30px;
+  box-sizing: border-box;
+}
+.composer-status > span {
+  font-size: 8px;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+.app.companion-layout .chat-compose > .suggestions {
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.app.companion-layout .chat-compose .suggestions button {
+  border-radius: 20px;
+  padding: 6px 10px;
+  background: var(--surface);
+  font-size: 10px;
+  transition: background 0.15s;
+}
+.app.companion-layout .chat-compose .suggestions button:hover {
+  background: var(--wash);
+  color: var(--accent);
+}
+.app.companion-layout .message .message-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 5px 0 0;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.app.companion-layout .message .message-read:hover,
+.app.companion-layout .message .message-read.is-playing {
+  color: var(--accent);
+}
+.app.companion-layout
+  :is(
+    .composer-voice,
+    .composer-stop,
+    .composer-send,
+    .message-read
+  ):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 400px) {
+  .composer-status > span {
+    display: none;
+  }
+  .app.companion-layout .composer-toolbar .composer-voice {
+    font-size: 9px;
+    gap: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app.companion-layout .chat-compose .composer-card,
+  .app.companion-layout .chat-compose .composer-send {
+    transition: none;
+  }
+  .app.companion-layout .chat-compose .composer-send:not(:disabled):hover {
+    transform: none;
+  }
+}

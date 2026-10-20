@@ -4,6 +4,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.api
     ports: ["127.0.0.1:8000:8000"]
+    volumes: ["astraverse-data:/app/data"]
   web:
     build:
       context: ..
@@ -12,3 +13,6 @@ services:
     environment:
       API_PROXY_TARGET: http://api:8000
     depends_on: [api]
+
+volumes:
+  astraverse-data:

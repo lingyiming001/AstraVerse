@@ -1,0 +1,856 @@
+/* Theme color contract: neutral surfaces, restrained accents, explicit states.
+   This layer bridges legacy component styles to the palette without changing layout. */
+.app.companion-layout {
+  scrollbar-color: var(--border-strong) transparent;
+}
+.app.companion-layout ::selection {
+  color: var(--text);
+  background: var(--wash);
+}
+.app.companion-layout :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.app.companion-layout :is(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+.app.companion-layout :is(.sidebar, .settings-navigation) {
+  background: var(--sidebar);
+  border-color: var(--border);
+}
+.app.companion-layout header {
+  background: var(--page);
+}
+.app.companion-layout
+  :is(
+    .eyebrow,
+    .settings-eyebrow,
+    .nav-label,
+    .settings-nav-title,
+    .settings-nav-group > small
+  ) {
+  color: var(--muted);
+}
+.app.companion-layout :is(.heading-row h1 > span, .brand-icon) {
+  color: var(--accent);
+}
+.app.companion-layout
+  :is(.workspace, .workspace-icon, .avatar.user, .tiny-avatar) {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(nav button, .bottom-link, .header-actions, .header-theme-picker select) {
+  color: var(--text-secondary);
+}
+.app.companion-layout
+  :is(nav button.active, .settings-nav-group > button.active) {
+  background: var(--wash);
+  color: var(--accent);
+}
+.app.companion-layout
+  :is(
+    nav button:hover,
+    .bottom-link:hover,
+    .settings-nav-group > button:hover
+  ) {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.app.companion-layout
+  :is(nav button.active:hover, .settings-nav-group > button.active:hover) {
+  background: var(--wash);
+  color: var(--accent);
+}
+.app.companion-layout :is(.stage-panel, .chat-panel, .collection-panel) {
+  box-shadow: var(--shadow);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(.primary, .chat-compose .send, .playback-buttons .play-button) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
+  box-shadow: 0 1px 2px #00000008;
+}
+.app.companion-layout
+  :is(
+    .primary:hover,
+    .chat-compose .send:hover,
+    .playback-buttons .play-button:hover
+  ) {
+  background: var(--accent-hover);
+  color: var(--accent-contrast);
+  filter: none;
+}
+.app.companion-layout :is(.secondary, .stage-side button, .stage-action-dock) {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.app.companion-layout
+  :is(
+    .secondary:hover,
+    .stage-side button:hover,
+    .stage-action-dock > button:hover
+  ) {
+  background: var(--surface-soft);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.app.companion-layout
+  :is(.stage-action-dock > button, .stage-view-switch button) {
+  color: var(--text-secondary);
+}
+.app.companion-layout .stage-view-switch {
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+.app.companion-layout .stage-view-switch button.selected {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px #0000000a;
+}
+.app.companion-layout
+  :is(.connection.connected i, .live-dot, .companion-status i) {
+  background: var(--success);
+}
+.app.companion-layout :is(.connection, .companion-status) {
+  color: var(--muted);
+}
+.app.companion-layout .panel-tabs button {
+  color: var(--muted);
+}
+.app.companion-layout .panel-tabs button.selected {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.app.companion-layout .chat-character {
+  background: var(--surface);
+}
+.app.companion-layout
+  :is(.chat-character .character-orb, .character-detail .character-orb) {
+  background: var(--surface-soft) !important;
+  color: var(--accent);
+  box-shadow: none;
+}
+.app.companion-layout .message-avatar {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+.app.companion-layout .message p {
+  background: var(--surface-soft);
+  border-color: transparent;
+  color: var(--text);
+}
+.app.companion-layout .message.user p {
+  background: var(--wash);
+  border-color: transparent;
+  color: var(--text);
+}
+.app.companion-layout
+  :is(.chat-compose form, .collection-search, .collection-actions select) {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+}
+.app.companion-layout .chat-compose form:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--wash);
+}
+.app.companion-layout :is(.suggestions button, .collection-imports > button) {
+  color: var(--text-secondary);
+  background: var(--surface);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(.suggestions button:hover, .collection-imports > button:hover) {
+  background: var(--surface-soft);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.app.companion-layout
+  :is(.chat-model-status, .thinking, .loading, .chat-compose > p) {
+  color: var(--muted);
+}
+.app.companion-layout .chat-model-status.model-ready {
+  color: var(--success);
+}
+.app.companion-layout .keyboard {
+  background: var(--surface-soft);
+  color: var(--muted);
+  border-color: var(--border);
+}
+.app.companion-layout .chat-resource-choices button {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.app.companion-layout .chat-resource-choices button:hover:enabled {
+  background: var(--surface-soft);
+  border-color: var(--border-strong);
+}
+.app.companion-layout .chat-resource-choices button > span {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+.app.companion-layout .music-player {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.app.companion-layout .album {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+.app.companion-layout
+  :is(
+    .track-info small,
+    .player-extra,
+    .progress > span,
+    .playback-buttons button
+  ) {
+  color: var(--muted);
+}
+.app.companion-layout .quality {
+  background: var(--surface-soft);
+  border-color: var(--border);
+  color: var(--muted);
+}
+.app.companion-layout input[type="range"] {
+  accent-color: var(--accent);
+}
+.app.companion-layout input[type="range"]::-webkit-slider-thumb {
+  background: var(--accent);
+}
+.app.companion-layout input[type="range"]::-moz-range-thumb {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.app.companion-layout .resource-page-heading h1 > span {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+.app.companion-layout :is(.collection-list-header, .collection-imports) {
+  background: var(--surface-soft);
+  color: var(--muted);
+  border-color: var(--border);
+}
+.app.companion-layout .collection-tabs button.active {
+  background: var(--wash);
+  color: var(--accent);
+}
+.app.companion-layout .collection-thumbnail {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+.app.companion-layout .collection-row.is-active {
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 var(--accent);
+}
+.app.companion-layout .collection-row:hover {
+  background: var(--surface-raised);
+}
+.app.companion-layout .collection-state > span {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.app.companion-layout .collection-state > span i {
+  background: var(--success);
+}
+.app.companion-layout .collection-chat-tip {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.app.companion-layout .collection-chat-tip > span {
+  color: var(--muted);
+}
+.app.companion-layout .model-source > span:first-child {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+}
+.app.companion-layout .model-source a {
+  color: var(--text-secondary);
+}
+.app.companion-layout .model-source a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+/* Settings receive exactly the same surfaces as the main workspace. */
+.app.companion-layout .modal-backdrop {
+  background: var(--overlay);
+  backdrop-filter: blur(8px);
+}
+.app.companion-layout .modal {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-elevated);
+}
+.app.companion-layout
+  :is(
+    .modal-header,
+    .settings-topline,
+    .settings-version,
+    .model-list-heading,
+    .model-test-actions,
+    .preference-row,
+    .result-heading
+  ) {
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(
+    .provider-layout,
+    .provider-editor,
+    .configured-model-grid > .model-entry,
+    .preference-card,
+    .route-card,
+    .chat-route-featured,
+    .help-guides article,
+    .settings-detail,
+    .inference-result
+  ) {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.app.companion-layout .settings-content .provider-list {
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+.app.companion-layout .settings-content .provider-list > button {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.app.companion-layout .settings-content .provider-list > button.active {
+  background: var(--wash);
+  border-color: var(--border-strong);
+  color: var(--accent);
+}
+.app.companion-layout .settings-content .provider-list > .local-provider {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.app.companion-layout
+  :is(
+    .provider-monogram,
+    .settings-icon,
+    .route-icon,
+    .preference-symbol,
+    .help-guides article > span,
+    .configured-count,
+    .list-heading span
+  ) {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(
+    .provider-list strong,
+    .provider-empty h3,
+    .route-section-heading h4,
+    .chat-route-heading h3,
+    .route-card-heading h4,
+    .model-list-heading h4,
+    .help-guides h4,
+    .settings-detail summary,
+    .preference-heading h4,
+    .preference-row h4,
+    .control-section-title h4,
+    .presence-toggles strong
+  ) {
+  color: var(--text);
+}
+.app.companion-layout
+  :is(
+    .provider-list small,
+    .provider-list .list-heading,
+    .provider-empty p,
+    .credential-note,
+    .input-hint,
+    .model-list-heading p,
+    .model-test-note,
+    .models-empty,
+    .models-empty p,
+    .models-empty small,
+    .route-card-heading p,
+    .route-card-heading h4 small,
+    .route-note,
+    .route-section-heading small,
+    .chat-route-heading p,
+    .chat-route-bottom small,
+    .fallback-field > span,
+    .help-guides p,
+    .settings-detail p,
+    .settings-footnote,
+    .preference-heading p,
+    .preference-row p,
+    .preference-heading > span,
+    .preference-card > p,
+    .playground-run > span,
+    .inference-wait,
+    .result-heading > span,
+    .result-heading small,
+    .mcp-run > span,
+    .mcp-connection small,
+    .character-sync,
+    .character-sync > span,
+    .presence-toggles small
+  ) {
+  color: var(--muted);
+}
+.app.companion-layout
+  :is(
+    .field,
+    .toggle-label,
+    .auto-chat-route,
+    .active-route,
+    .presence-toggles label
+  ) {
+  color: var(--text-secondary);
+}
+.app.companion-layout .settings-center .field :is(input, select, textarea),
+.app.companion-layout .modal .modal-content :is(input, select, textarea) {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+.app.companion-layout .settings-content .mcp-panel textarea {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.app.companion-layout
+  .settings-center
+  .field
+  :is(input, select, textarea):focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--wash);
+}
+.app.companion-layout
+  .configured-model-grid
+  .model-entry
+  > div:first-child
+  input {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(
+    .capability-chips button,
+    .playground-capabilities button,
+    .pose-presets > button,
+    .expression-grid > button,
+    .pills span,
+    .discovered-models button
+  ) {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(
+    .capability-chips button.selected,
+    .playground-capabilities button.selected,
+    .expression-grid > button.selected
+  ) {
+  background: var(--wash);
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+.app.companion-layout .expression-grid > button > span {
+  color: inherit;
+}
+.app.companion-layout
+  :is(
+    .model-setup-steps,
+    .active-route,
+    .settings-alert,
+    .model-chat-action,
+    .upload-zone,
+    .presence-toggles label,
+    .mcp-connection,
+    .model-check-result
+  ) {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(
+    .model-setup-steps > span,
+    .model-setup-steps > svg,
+    .model-check-badge,
+    .model-check-result > div,
+    .discovered-models > small,
+    .active-route > span
+  ) {
+  color: var(--muted);
+}
+.app.companion-layout .model-setup-steps b {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.app.companion-layout
+  :is(.model-check-result > p, .result-text, .active-route strong) {
+  color: var(--text);
+}
+.app.companion-layout .model-check-result strong {
+  color: var(--text-secondary);
+}
+.app.companion-layout
+  :is(
+    .model-test-actions .secondary,
+    .configured-model-grid .model-chat-action > .secondary,
+    .settings-content .model-list-heading > button
+  ) {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+.app.companion-layout
+  :is(.text-button, .model-list-heading button, .settings-detail code) {
+  color: var(--accent);
+}
+.app.companion-layout
+  :is(.settings-detail code, .mcp-panel pre, .help-center pre) {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.app.companion-layout .mcp-panel > .settings-intro > svg,
+.app.companion-layout .help-intro > svg {
+  color: var(--muted);
+}
+.app.companion-layout .empty-orbit {
+  background: var(--surface-soft);
+  color: var(--muted);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.app.companion-layout
+  :is(
+    .toggle-label input,
+    .presence-toggles input,
+    .preference-row > input[type="checkbox"]
+  ) {
+  background: var(--border-strong);
+  border-color: var(--border-strong);
+}
+.app.companion-layout
+  :is(
+    .toggle-label input:checked,
+    .presence-toggles input:checked,
+    .preference-row > input[type="checkbox"]:checked
+  ) {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.app.companion-layout
+  :is(
+    .toggle-label input:after,
+    .presence-toggles input:after,
+    .preference-row > input[type="checkbox"]:after
+  ) {
+  background: var(--surface);
+}
+.app.companion-layout
+  :is(
+    .toggle-label input:checked:after,
+    .presence-toggles input:checked:after,
+    .preference-row > input[type="checkbox"]:checked:after
+  ) {
+  background: var(--accent-contrast);
+}
+.app.companion-layout
+  :is(.joint-slider output, .control-section-title > button) {
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+.app.companion-layout .save-config i {
+  background: var(--muted);
+}
+.app.companion-layout .save-config.has-changes i {
+  background: var(--accent-contrast);
+}
+.app.companion-layout .toast {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-elevated);
+}
+.app.companion-layout .toast > svg {
+  color: var(--success);
+}
+/* Status colors carry meaning rather than decorative theme color. */
+.app.companion-layout :is(.route-status, .model-chat-action > span) {
+  background: var(--surface-soft);
+  color: var(--muted);
+  border-color: var(--border);
+}
+.app.companion-layout
+  :is(
+    .route-status.ready,
+    .settings-feedback.success,
+    .model-check-result.success
+  ) {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
+}
+.app.companion-layout
+  :is(
+    .model-check-badge.success,
+    .model-check-result.success strong,
+    .model-chat-action.active > span
+  ) {
+  color: var(--success);
+}
+.app.companion-layout
+  :is(.settings-feedback.error, .model-check-result.failed) {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+}
+.app.companion-layout
+  :is(
+    .model-check-badge.failed,
+    .model-check-result.failed strong,
+    .danger-button,
+    .collection-delete:hover
+  ) {
+  color: var(--danger);
+}
+.app.companion-layout :is(.danger-button:hover, .collection-delete:hover) {
+  background: var(--danger-bg);
+}
+.app.companion-layout .model-check-badge.checking {
+  color: var(--info);
+}
+.app.companion-layout .model-check-result.checking {
+  border-color: var(--info);
+  background: var(--info-bg);
+}
+/* Palette previews show actual neutral layers and one restrained accent. */
+.app.companion-layout .theme-options > button {
+  background: var(--surface);
+  border-color: var(--border);
+  padding: 11px;
+  box-shadow: none;
+}
+.app.companion-layout .theme-options > button:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+}
+.app.companion-layout .theme-options > button.selected {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.app.companion-layout .theme-options .theme-preview {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 35px;
+  grid-template-rows: 13px 1fr;
+  gap: 0;
+  height: 96px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--page);
+}
+.app.companion-layout .theme-preview .preview-topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.app.companion-layout .preview-topbar b {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.app.companion-layout .theme-preview .preview-rail {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: 9px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.app.companion-layout .preview-rail b {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+.app.companion-layout .preview-rail b:first-child {
+  background: var(--accent);
+}
+.app.companion-layout .theme-preview .preview-stage {
+  margin: 8px 6px;
+  background: var(--stage);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+}
+.app.companion-layout .preview-stage b {
+  width: 15px;
+  height: 24px;
+  border-radius: 9px 9px 5px 5px;
+  background: var(--border-strong);
+  position: relative;
+  opacity: 0.75;
+}
+.app.companion-layout .preview-stage b:before {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  top: -10px;
+  left: 2.5px;
+}
+.app.companion-layout .theme-preview .preview-conversation {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 10px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.app.companion-layout .preview-conversation b {
+  display: block;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+}
+.app.companion-layout .preview-conversation b:nth-child(2) {
+  width: 75%;
+  align-self: flex-end;
+  background: var(--wash);
+}
+.app.companion-layout .preview-conversation b:last-child {
+  margin-top: auto;
+  height: 6px;
+  width: 60%;
+  align-self: flex-end;
+  background: var(--accent);
+  border: none;
+}
+.app.companion-layout .theme-options strong {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 12px;
+  margin-top: 12px;
+}
+.app.companion-layout .theme-options strong > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.app.companion-layout .theme-options strong > svg {
+  color: var(--accent);
+}
+.app.companion-layout .theme-options strong > span > svg {
+  color: var(--muted);
+}
+.app.companion-layout .theme-options small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.8;
+}
+.app.companion-layout .resource-tab-count {
+  opacity: 1;
+  color: var(--muted);
+}
+.app.companion-layout .mini-portrait {
+  opacity: 1;
+}
+.app.companion-layout
+  :is(
+    .modal-header > button,
+    .provider-list > button > svg:last-child,
+    .model-entry > div:first-child > button,
+    .character-detail label,
+    .character-detail p,
+    .control-section-title > span
+  ) {
+  color: var(--muted);
+}
+.app.companion-layout .modal-header > button:hover {
+  color: var(--text);
+  background: var(--surface-soft);
+}
+.app.companion-layout .model-chat-action > span {
+  color: var(--text-secondary);
+}
+
+/* Live2D panels use the same surfaces and text contract as the rest of the app. */
+.app.companion-layout :is(.live2d-status, .live2d-actions) {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-elevated);
+  color-scheme: inherit;
+}
+.app.companion-layout .live2d-setup {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.app.companion-layout .live2d-setup-steps > div {
+  background: var(--surface-soft);
+  border-color: var(--border-strong);
+}
+.app.companion-layout :is(.live2d-setup, .live2d-status, .live2d-actions) :is(h2, strong, summary) {
+  color: var(--text);
+  opacity: 1;
+}
+.app.companion-layout :is(.live2d-setup, .live2d-status, .live2d-actions) :is(p, small),
+.app.companion-layout .live2d-setup-steps span {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.app.companion-layout :is(.live2d-setup, .live2d-status) a {
+  color: var(--accent);
+  opacity: 1;
+  text-underline-offset: 3px;
+}
+.app.companion-layout :is(.live2d-actions, .live2d-status) button {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.app.companion-layout .live2d-import {
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--wash);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.app.companion-layout :is(.live2d-actions button, .live2d-status button, .live2d-import):hover {
+  background: var(--wash);
+  color: var(--accent);
+  border-color: var(--accent);
+}

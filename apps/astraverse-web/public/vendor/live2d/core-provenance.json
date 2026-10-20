@@ -1,0 +1,9 @@
+{
+  "source": "https://cubism.live2d.com/sdk-web/core/05/live2dcubismcore.min.js",
+  "channel": "Cubism 5.2 (official 05 hosting path)",
+  "sha256": "25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f",
+  "bytes": 207155,
+  "license": "https://www.live2d.com/eula/live2d-proprietary-software-license-agreement_en.html",
+  "installed": "2026-10-19",
+  "scope": "Local installation following user authorization; publication requires applicable SDK terms."
+}

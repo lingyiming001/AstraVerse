@@ -1,0 +1,6 @@
+Pink Sakura — Ariakage / live2d-agent-kit
+Source: https://github.com/Ariakage/live2d-agent-kit
+Commit: a6d75cfdcf18ccd094870fa028fb9b50aebb97b1
+License: CC BY 4.0; see ASSET-LICENSE.md and ATTRIBUTION.md.
+Upstream attribution states original reference image was generated with ChatGPT Image2.5 and model creation assisted by GPT-6 Astra Ultra.
+AstraVerse changes: runtime-only ZIP packaging; runtime assets unmodified. No Core included. No independent arms/fingers or authored dance motion.

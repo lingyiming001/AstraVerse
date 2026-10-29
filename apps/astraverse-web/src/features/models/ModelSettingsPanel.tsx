@@ -448,7 +448,7 @@ export default function ModelSettingsPanel({
     <div
       className={`settings-center ${scopeAgentId ? "character-model-center" : ""}`}
     >
-      <aside className="settings-navigation">
+      <aside className="settings-navigation" aria-label="设置分类">
         <span className="settings-nav-title">
           {scopeAgentId ? "角色专属模型配置" : "你的空间，你的偏好"}
         </span>
@@ -489,7 +489,7 @@ export default function ModelSettingsPanel({
             </strong>
             <small>
               {["general", "character", "agents", "mcp", "help"].includes(tab)
-                ? "在这里，找到适合你的相处方式"
+                ? tab === "general" ? "主题、语音与使用偏好，修改后自动保存" : tab === "character" ? "实时调整舞台中的动作与表情" : tab === "agents" ? "管理角色的人设与直播行为" : "管理连接与使用选项"
                 : dirty
                   ? "有未保存的模型配置"
                   : "模型配置已同步"}

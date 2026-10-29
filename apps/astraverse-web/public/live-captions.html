@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AstraVerse 直播字幕</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    body { display: flex; align-items: flex-end; justify-content: center; font: 700 clamp(24px, 4vw, 52px)/1.4 system-ui, sans-serif; }
+    #caption { box-sizing: border-box; max-width: 94%; margin: 0 0 5%; padding: .18em .5em; color: white; text-align: center; overflow-wrap: anywhere; white-space: pre-wrap; text-shadow: 0 2px 5px #000, 0 0 12px #000, 2px 2px 2px #000; opacity: 0; transition: opacity .2s; }
+    #caption.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="caption" role="status" aria-live="polite"></div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const channel = params.get('channel') || '';
+    const caption = document.getElementById('caption');
+    let lastAt = 0;
+    let initialized = false;
+    let timer;
+    let pending = false;
+    let active = true;
+    function show(value) {
+      caption.textContent = value;
+      caption.classList.toggle('visible', !!value);
+      clearTimeout(timer);
+      if (value) timer = setTimeout(() => show(''), Math.min(18000, Math.max(5500, value.length * 180)));
+    }
+    async function poll() {
+      if (!active || pending) return;
+      pending = true;
+      try {
+        const response = await fetch(`/api/live/channels/${encodeURIComponent(channel)}/events`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('直播间不可用');
+        const payload = await response.json();
+        const events = Array.isArray(payload.events) ? payload.events : [];
+        const fresh = initialized ? events.filter(event => event.at > lastAt && event.kind === 'reply') : [];
+        initialized = true;
+        for (const event of events) if (typeof event.at === 'number') lastAt = Math.max(lastAt, event.at);
+        if (fresh.length) show(String(fresh.at(-1).text || '').slice(0, 1200));
+      } catch {
+        // Keep the latest caption during brief connection failures; the next poll retries.
+      } finally { pending = false; }
+    }
+    if (/^[a-zA-Z0-9_-]{1,64}$/.test(channel)) {
+      poll();
+      const interval = setInterval(poll, 750);
+      window.addEventListener('pagehide', () => { active = false; clearInterval(interval); clearTimeout(timer); }, { once: true });
+    } else show('请从直播弹幕面板复制字幕源地址');
+  </script>
+</body>
+</html>

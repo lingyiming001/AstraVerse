@@ -1,0 +1,49 @@
+.app.companion-layout .agent-settings .agent-editor-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.app.companion-layout .agent-settings .agent-sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; }
+.app.companion-layout .agent-settings .agent-sections > button { font-size: 13px; padding: 11px 8px; border-radius: 8px; }
+.app.companion-layout .agent-settings .agent-picker > span { flex-wrap: wrap; font-size: 11px; }
+.app.companion-layout .agent-settings .agent-picker .agent-save-state { align-self: center; font-size: 11px; }
+.app.companion-layout .agent-settings .agent-section-guide { font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin: 0; }
+.app.companion-layout .agent-settings .agent-form .field { font-size: 12px; gap: 7px; }
+.app.companion-layout .agent-settings .agent-form .field > small { font-size: 11px; line-height: 1.65; }
+.app.companion-layout .agent-settings .agent-form .field :is(input, textarea, select) { font-size: 13px; }
+.app.companion-layout .agent-settings .agent-defaults-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.app.companion-layout .agent-settings .agent-defaults-summary button { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: left; color: var(--text-secondary); }
+.app.companion-layout .agent-settings .agent-defaults-summary button:hover { background: var(--surface-soft); }
+.app.companion-layout .agent-settings .agent-defaults-summary button > span { display: grid; gap: 5px; min-width: 0; font-size: 10px; }
+.app.companion-layout .agent-settings .agent-defaults-summary strong { font-size: 12px; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.app.companion-layout .agent-settings .agent-defaults-summary svg { flex-shrink: 0; }
+.app.companion-layout .agent-settings-group { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); min-width: 0; }
+.app.companion-layout .agent-settings-group > summary { display: flex; align-items: center; gap: 12px; justify-content: space-between; cursor: pointer; padding: 15px 16px; list-style: none; }
+.app.companion-layout .agent-settings-group > summary::-webkit-details-marker { display: none; }
+.app.companion-layout .agent-settings-group > summary > div { display: grid; gap: 5px; min-width: 0; }
+.app.companion-layout .agent-settings-group > summary strong { font-size: 13px; font-weight: 500; color: var(--text); }
+.app.companion-layout .agent-settings-group > summary span { font-size: 11px; line-height: 1.5; color: var(--muted); }
+.app.companion-layout .agent-settings-group > summary > svg { color: var(--muted); flex-shrink: 0; transition: transform .15s ease; }
+.app.companion-layout .agent-settings-group[open] > summary > svg { transform: rotate(90deg); }
+.app.companion-layout .agent-settings-group[open] > summary { border-bottom: 1px solid var(--border); }
+.app.companion-layout .agent-settings-group-body { display: flex; flex-direction: column; gap: 18px; padding: 16px; min-width: 0; }
+.app.companion-layout .agent-settings .agent-settings-breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-size: 12px; color: var(--muted); }
+.app.companion-layout .agent-settings .agent-settings-breadcrumb button { color: var(--accent); padding: 6px 0; }
+.app.companion-layout .agent-settings .agent-settings-breadcrumb strong { color: var(--text); font-weight: 500; }
+.app.companion-layout .agent-settings .agent-more-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.app.companion-layout .agent-settings .agent-more-settings > p { grid-column: 1 / -1; margin-bottom: 4px; }
+.app.companion-layout .agent-settings .agent-more-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px; text-align: left; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.app.companion-layout .agent-settings .agent-more-card:hover { background: var(--surface-soft); border-color: var(--border-strong); }
+.app.companion-layout .agent-settings .agent-more-card > span { display: grid; gap: 7px; }
+.app.companion-layout .agent-settings .agent-more-card strong { font-size: 14px; color: var(--text); font-weight: 500; }
+.app.companion-layout .agent-settings .agent-more-card small { color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.app.companion-layout .agent-settings .agent-more-card svg { flex-shrink: 0; color: var(--muted); }
+.app.companion-layout .agent-settings .agent-editor-footer { gap: 10px; }
+.app.companion-layout .agent-settings .agent-editor-footer :is(.primary, .secondary) { font-size: 12px; }
+.app.companion-layout .agent-settings :is(button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 680px) {
+  .app.companion-layout .agent-settings .agent-more-settings { grid-template-columns: 1fr; }
+  .app.companion-layout .agent-settings .agent-defaults-summary { grid-template-columns: 1fr; }
+  .app.companion-layout .agent-settings .agent-defaults-summary button > span { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .app.companion-layout .agent-settings .agent-sections > button { font-size: 12px; padding: 10px 5px; }
+  .app.companion-layout .agent-settings-group-body { padding: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app.companion-layout .agent-settings-group > summary > svg { transition: none; }
+}

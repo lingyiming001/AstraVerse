@@ -98,6 +98,14 @@ def resolve_target(capability: Capability, target: Target, config: Settings | No
     return config,[(provider,model.id)]
 
 
+def provider_error_code(exc: httpx.HTTPStatusError) -> str:
+    try:
+        error = exc.response.json().get('error', {})
+        code = error.get('code') or error.get('type')
+        return code if code in ('Arrearage', 'AccessDenied.Unpurchased') else ''
+    except (ValueError, AttributeError, TypeError):
+        return ''
+
 def client_for(timeout: int) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout, follow_redirects=False)
 
@@ -117,7 +125,7 @@ async def request_json(provider: Provider, path: str, payload: dict[str,Any], ti
 
 async def conversation(prompt: str, capability: Capability = 'text', attachments: list[Attachment] | None = None, system: str = '', history: list[dict[str,str]] | None = None, target_override: Target | None = None, settings_override: Settings | None = None) -> dict[str,Any]:
     prompt = validate_input(prompt, 12000)
-    history = [turn for turn in (history or []) if safe_reply(turn.get('content', '')) == turn.get('content', '')]
+    history = [{'role':turn['role'],'content':turn['content']} for turn in (history or []) if turn.get('role') in ('user','assistant') and isinstance(turn.get('content'),str) and safe_reply(turn['content']) == turn['content']]
     config, targets = resolve_target(capability,target_override,settings_override) if target_override else get_targets(capability,settings_override)
     content: Any = prompt
     if capability in ('vision','video'):
@@ -130,10 +138,12 @@ async def conversation(prompt: str, capability: Capability = 'text', attachments
         try:
             result = await request_json(provider,'/chat/completions',{'model':model,'messages':[{'role':'system','content':(system or '请用中文准确回答。视频输入为按时间顺序采样的关键帧，仅描述可见内容，不推断原始声音。') + POLICY_PROMPT}, *(history or []), {'role':'user','content':content}],'max_tokens':config.max_tokens},config.timeout)
             text = result['choices'][0]['message']['content']
+            if isinstance(text,list):
+                text='\n'.join(block['text'] for block in text if isinstance(block,dict) and block.get('type') in ('text','output_text') and isinstance(block.get('text'),str))
             if not isinstance(text,str) or not text.strip(): raise ValueError('Missing text response')
             return {'kind':'text','text':safe_model_output(text),'provider':provider.name,'model':model,'attempts':attempts}
         except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError) as exc:
-            attempts.append({'provider':provider.name,'status':exc.response.status_code if isinstance(exc,httpx.HTTPStatusError) else 'unavailable'})
+            attempts.append({'provider':provider.name,'status':exc.response.status_code if isinstance(exc,httpx.HTTPStatusError) else 'unavailable', 'code':provider_error_code(exc) if isinstance(exc,httpx.HTTPStatusError) else ''})
     raise HTTPException(502, {'message':'所有路由均失败，请检查密钥、模型能力与地址','attempts':attempts})
 
 @router.post('/infer')
@@ -149,6 +159,10 @@ async def infer(request: InferenceRequest) -> Any:
     # Generation never silently retries/fails over: requests may have already incurred a charge.
     provider, model = targets[0]
     try:
+        if request.capability == 'embedding':
+            from astraverse.modules.rag.embedding import embed
+            values,_=await embed([request.prompt],(config,provider,model,'probe'))
+            return {'kind':'text','text':f'向量连接成功：{len(values[0])}维。','provider':provider.name,'model':model}
         if request.capability == 'image':
             result = await request_json(provider,'/images/generations',{'model':model,'prompt':request.prompt,'n':1,'size':'1024x1024'},config.timeout)
             image = result['data'][0]
@@ -261,6 +275,9 @@ async def test_model(request: ModelTestRequest) -> dict[str,Any]:
         status=exc.response.status_code
         messages={400:'请求参数或模型接口不兼容，请核对模型 ID 与聊天接口',401:'API Key 无效或已失效，请重新填写',403:'当前密钥没有该模型的调用权限',404:'模型或聊天接口不存在，请检查模型 ID 和 Base URL',429:'供应商限流或额度不足，请查看供应商控制台'}
         result.update({'status':'failed','http_status':status,'message':messages.get(status,'供应商服务暂时不可用，请稍后手动重试')})
+        code = provider_error_code(exc)
+        if code == 'Arrearage': result['message'] = '模型服务账户余额不足或已欠费，请前往阿里云百炼控制台检查余额与账单，补足后重新测试。'
+        elif code == 'AccessDenied.Unpurchased': result['message'] = '当前账户尚未开通这个模型，请在供应商控制台开通权限，或切换已开通的模型。'
     except httpx.TimeoutException:
         result.update({'status':'failed','message':'模型响应超时，请检查网络、供应商状态或本地模型是否已加载'})
     except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError):

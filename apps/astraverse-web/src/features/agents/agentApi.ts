@@ -14,7 +14,35 @@ export interface AgentVoice {
   rate: number;
   pitch: number;
 }
+export interface LiveProgram {
+  context_turns: number;
+  memory_enabled: boolean;
+  daily: {
+    enabled: boolean; timezone: string; interval: number; max_attempts: number;
+    slots: { start: string; title: string; activity: "chat" | "knowledge" | "memory" | "dream" | "rest"; topic: string; interaction?: "high" | "balanced" | "low"; music?: "auto" | "prefer" | "off"; mood?: "lively" | "natural" | "relaxed" }[];
+  };
+  idle_enabled: boolean;
+  idle_interval: number;
+  idle_max_turns: number;
+  idle_mode: "knowledge" | "memory" | "dream" | "mixed";
+  idle_topics: string;
+  fictional_lore: string;
+  safety_notes: string;
+  blocked_terms: string;
+  title: string;
+  audience: string;
+  goal: string;
+  segment: "opening" | "discussion" | "qa" | "partner" | "closing";
+  rundown: string;
+  partner_name: string;
+  partner_facts: string;
+  partner_enabled: boolean;
+  call_to_action: string;
+}
 export interface AgentProfile {
+  inspiration: { enabled: boolean; interval_minutes: number };
+  team: { resource_initiative: boolean; motion_enabled: boolean; motion_mode: "local" | "llm"; moderation_enabled: boolean; viewer_cooldown: number; repeat_window: number };
+  live_program: LiveProgram;
   id: string;
   name: string;
   identity: string;
@@ -23,6 +51,11 @@ export interface AgentProfile {
   speaking_style: string;
   relationship: string;
   boundaries: string;
+  strengths: string;
+  preferences: string;
+  habits: string;
+  live_style: string;
+  knowledge: { title: string; content: string; public: boolean }[];
   greeting: string;
   memory_notes: string;
   remember: boolean;
@@ -36,6 +69,7 @@ export interface AgentProfile {
   voice: AgentVoice;
 }
 export interface AgentMessage {
+  sources?: import("@/features/rag/ragApi").RagSource[];
   role: "user" | "assistant";
   text: string;
   mode?: string;

@@ -12,8 +12,14 @@ dependencies = [
   "uvicorn[standard]>=0.34,<1",
   "pydantic>=2.10,<3",
   "httpx>=0.28,<1",
+  "websockets>=15,<18",
+  "Brotli>=1.1,<2",
+  "grpcio>=1.65,<2",
+  "protobuf>=5,<8",
   "python-dotenv>=1,<2",
-  "mcp>=1.12,<2"
+  "mcp>=1.12,<2",
+  "qdrant-client>=1.15,<2",
+  "pypdf>=5,<7"
 ]
 
 [project.optional-dependencies]

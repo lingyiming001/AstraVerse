@@ -6,8 +6,8 @@ from typing import Literal
 from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-Capability = Literal['text', 'vision', 'image', 'speech', 'transcription', 'video', 'video_generate']
-CAPABILITIES = ('text', 'vision', 'image', 'speech', 'transcription', 'video', 'video_generate')
+Capability = Literal['text', 'vision', 'image', 'speech', 'transcription', 'video', 'video_generate', 'embedding']
+CAPABILITIES = ('text', 'vision', 'image', 'speech', 'transcription', 'video', 'video_generate', 'embedding')
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -15,7 +15,7 @@ class StrictModel(BaseModel):
 
 class Model(StrictModel):
     id: str = Field(min_length=1, max_length=160, pattern=r'^\S+$')
-    capabilities: list[Capability] = Field(min_length=1, max_length=7)
+    capabilities: list[Capability] = Field(min_length=1, max_length=8)
     speech_backend: Literal['openai', 'dashscope'] = 'openai'
     speech_voice: str = Field(default='Cherry', min_length=1, max_length=120, pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_.: -]*$')
     speech_language: Literal['Auto','Chinese','English','German','Italian','Portuguese','Spanish','Japanese','Korean','French','Russian'] = 'Auto'

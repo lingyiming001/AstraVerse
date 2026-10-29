@@ -3,6 +3,7 @@ import { BrainCircuit, RefreshCw, Trash2, History } from "lucide-react";
 import { readResponse } from "@/shared/api/http";
 type Memory = {
   summary: string;
+  character_preferences?: { source_id: string; text: string }[];
   facts: { text: string; source_ids: number[] }[];
   source: string;
   status: string;
@@ -158,6 +159,7 @@ export default function AgentMemory({ agentId }: { agentId: string }) {
           </div>
         ))}
       </div>
+      {!!memory?.character_preferences?.length && <details className="memory-facts"><summary>角色表达过的偏好 · {memory.character_preferences.length}</summary><p className="memory-explainer">保留有来源的观点，帮助切换模型后继续交流；这些是过往表达，不证明实际经历，也允许随情境调整。</p>{memory.character_preferences.map(item => <div key={item.source_id + item.text}><span>{item.text}</span><small><button onClick={() => void source(Number(item.source_id))}>查看来源 #{item.source_id}</button></small></div>)}</details>}
       {origin && (
         <div className="memory-origin">
           <strong>原话 #{origin.id}</strong>
@@ -174,11 +176,11 @@ export default function AgentMemory({ agentId }: { agentId: string }) {
           现在整理
         </button>
         <button
-          disabled={busy || !memory?.summary}
+          disabled={busy || !(memory?.summary || memory?.fact_count || memory?.character_preferences?.length)}
           onClick={() => setConfirm(true)}
         >
           <Trash2 size={13} />
-          删除自动记忆
+          删除自动记忆与偏好
         </button>
         <button disabled={busy} onClick={() => void older()}>
           <History size={13} />
@@ -188,11 +190,11 @@ export default function AgentMemory({ agentId }: { agentId: string }) {
       {confirm && (
         <div className="plugin-consent">
           <p>
-            删除自动摘要和记忆线索，保留聊天原文与手写记忆。已归纳的旧消息不会自动重新提取；最近对话仍可作为短期上下文。要彻底清除，请使用下方「清空会话」。
+            删除自动摘要、记忆线索和角色过往的偏好表达，保留聊天原文与手写记忆。已归纳的旧消息不会自动重新提取；最近对话仍可作为短期上下文。要彻底清除，请使用下方「清空会话」。
           </p>
           <button onClick={() => setConfirm(false)}>取消</button>
           <button disabled={busy} onClick={() => void act(true)}>
-            确认删除摘要
+            确认删除自动记忆
           </button>
         </div>
       )}

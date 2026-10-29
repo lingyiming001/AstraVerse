@@ -18,6 +18,8 @@ __pycache__/
 
 # Official Cubism Core installed locally under its separate license
 /apps/astraverse-web/public/vendor/live2d/live2dcubismcore.min.js
+/apps/astraverse-web/public/models/live2d/mao-pro/mao-pro.zip
+/apps/astraverse-web/public/models/live2d/shizuku/shizuku.zip
 
 # Python distribution artifacts
 *.egg-info/

@@ -1,3 +1,20 @@
+import SourcePanel from "@/features/rag/SourcePanel";
+import { useMusicComments } from '@/features/music/useMusicComments';
+import { friendlyError } from "@/shared/api/http";
+import { indexFile, syncMissing } from "@/features/rag/ragApi";
+import { acknowledgeOperation, waitForPlayback, type ExecutionStatus, type Operation } from "@/features/agents/actionExecution";
+import { duplicateResource, availableFilename, type ConflictChoice } from "@/features/library/importConflicts";
+import ReadingTextPanel from "@/features/library/ReadingTextPanel";
+import { musicPauseIntent, pauseMusic } from "@/features/music/musicControl";
+import PanelDialog from "@/shared/ui/PanelDialog";
+import { importBatch, type ImportOutcome } from "@/features/library/batchImport";
+import type { CSSProperties } from "react";
+import { bookExcerpt } from "@/features/library/bookExcerpt";
+import { importWholeBook, readableBook, readingRequest, selectBook, updateReader, useBookReading, type Reading } from "@/features/library/bookReading";
+import { useBookReader } from "@/features/library/useBookReader";
+import { parseReadingCommand } from "@/features/library/readingCommand";
+import { useStageDisclosure } from "@/shared/ui/useStageDisclosure";
+import ReplyPending from "@/features/chat/ReplyPending";
 import { usePerformance } from "@/features/stage/performance";
 import CharacterAbilities from "@/features/stage/AbilityPanel";
 import { availableAbilities, applyCharacterAbility } from "@/features/stage/characterAbilities";
@@ -13,7 +30,7 @@ import { builtinScene, builtinScenes } from "@/features/scenes/sceneCatalog";
 import { inputProblem } from "@/shared/contentPolicy";
 import { useMusicOwnership } from "@/features/music/musicPlayback";
 import { useLive2DControl } from "@/features/live2d/live2dControl";
-import { builtinLive2DCharacters } from "@/features/live2d/live2dCatalog";
+import { builtinLive2DCharacters, optionalLive2DCharacters } from "@/features/live2d/live2dCatalog";
 import { isLive2D } from "@/features/live2d/cubismRuntime";
 import { openLive2DPackage } from "@/features/live2d/live2dPackage";
 import {
@@ -118,9 +135,10 @@ import {
 } from "@/features/library/resources";
 import { themes, getTheme, themeVariables, type ThemeId } from "@/shared/preferences/themes";
 import { usePreferences, useReducedMotion } from "@/shared/preferences/preferences";
-import { speakCharacter, stopCharacterSpeech, useSpeech } from "@/features/chat/speech";
+import { speakCharacter, stopCharacterSpeech, stopBookSpeech, stopLiveSpeech, useSpeech, enqueueLiveSpeech } from "@/features/chat/speech";
+import { useLivePlayback } from "@/features/live/useLivePlayback";
 import CharacterControls from "@/features/stage/CharacterControls";
-import { analyseMusic, analyseMusicElement } from "@/features/music/musicMotion";
+import { analyseMusicElement } from "@/features/music/musicMotion";
 import {
   beginTurn,
   endTurn,
@@ -156,12 +174,13 @@ class RenderBoundary extends Component<
   }
 }
 const navigation = [
-  { name: "创作空间", icon: LayoutDashboard },
-  { name: "虚拟角色", icon: Users },
-  { name: "场景世界", icon: Globe2 },
-  { name: "音乐与舞蹈", icon: Music2 },
-  { name: "书籍库", icon: BookOpen },
-  { name: "资源库", icon: FolderOpen },
+  { name: "创作空间", icon: LayoutDashboard, group: "工作台" },
+  { name: "虚拟角色", icon: Users, group: "资源管理" },
+  { name: "场景世界", icon: Globe2, group: "资源管理" },
+  { name: "音乐与舞蹈", icon: Music2, group: "资源管理" },
+  { name: "书籍库", icon: BookOpen, group: "资源管理" },
+  { name: "视频库", icon: Video, group: "资源管理" },
+  { name: "资源库", icon: FolderOpen, group: "资源管理" },
 ];
 const worlds = [
   {
@@ -195,26 +214,7 @@ type Track = {
   duration: number;
   url?: string;
 };
-const defaultTracks: Track[] = [
-  {
-    id: "music-starlight",
-    name: "Starlight Reverie",
-    artist: "AstraVerse Originals · 氛围纯音乐",
-    duration: 164,
-  },
-  {
-    id: "music-between",
-    name: "Between the Stars",
-    artist: "AstraVerse Originals · 氛围纯音乐",
-    duration: 192,
-  },
-  {
-    id: "music-moonlit",
-    name: "Moonlit Letters",
-    artist: "AstraVerse Originals · 氛围纯音乐",
-    duration: 148,
-  },
-];
+const defaultTracks: Track[] = [];
 function time(t: number) {
   return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 }
@@ -225,6 +225,9 @@ export default function App() {
   const agents = useAgents();
   const [nav, setNav] = useState(pageFromHash);
   const [tab, setTab] = useState("对话");
+  const [showReadingText, setShowReadingText] = useState(false);
+  const [previewCollapsed, setPreviewCollapsed] = useState(false);
+  const [agentSettingsSection, setAgentSettingsSection] = useState("persona");
   const [modal, setModal] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [online, setOnline] = useState(false);
@@ -233,7 +236,7 @@ export default function App() {
   const [allTracks, setTracks] = useState(defaultTracks);
   const [trackIndex, setTrack] = useState(0);
   const visibleTracks = allTracks
-    .filter((t) => !catalog.hidden.includes(t.id))
+    .filter((t) => !!t.url && !catalog.hidden.includes(t.id))
     .map((t) => ({
       ...t,
       name: catalog.patches[t.id]?.name || t.name,
@@ -265,10 +268,32 @@ export default function App() {
   const light = theme.light;
   const voice = preferences.voice;
   const speech = useSpeech();
+  useLivePlayback();
   const setVoice = (v: boolean) => preferences.set({ voice: v });
   const [assets, setAssets] = useState<Resource[]>([]);
+  const [installedLive2D, setInstalledLive2D] = useState<Resource[]>([]);
+  const live2DCharacters = [...builtinLive2DCharacters, ...installedLive2D];
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(optionalLive2DCharacters.map(async resource => {
+      try {
+        const response = await fetch(resource.url!.split("#")[0], { method: "HEAD" });
+        return response.ok && response.headers.get("content-type") !== "text/html" ? resource : null;
+      } catch { return null; }
+    })).then(found => {
+      if (cancelled) return;
+      const installed = found.filter((item): item is Resource => !!item);
+      setInstalledLive2D(installed);
+      try {
+        const selected = localStorage.getItem("astraverse-selected-character");
+        const restored = installed.find(item => item.id === selected);
+        if (restored && !useLibraryCatalog.getState().hidden.includes(restored.id)) set({ modelUrl: restored.url || null, characterVisible: true, position: [0,0,0] });
+      } catch { /* Browser storage is optional. */ }
+    });
+    return () => { cancelled = true; };
+  }, []);
   const customCharacter = state.modelUrl
-    ? [...assets, ...builtinLive2DCharacters].find((r) => r.kind === "character" && r.url === state.modelUrl)
+    ? [...assets, ...live2DCharacters].find((r) => r.kind === "character" && r.url === state.modelUrl)
     : undefined;
   const characterView = customCharacter
     ? {
@@ -279,6 +304,7 @@ export default function App() {
       }
     : baseCharacter;
   const agentId = customCharacter?.id || `character-${character}`;
+  useBookReader(agentId);
   const agent = agents.profiles[agentId];
   const c = {
     ...characterView,
@@ -339,17 +365,36 @@ export default function App() {
   }, [agentId, agent?.behavior]);
   const [lyrics, setLyrics] = useState<{ at: number; text: string }[]>([]);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const musicRevision = useRef(0);
+  const musicAutoBlocked = useRef(false);
   const musicUnavailable = useCallback(() => {
     set({ playing: false });
     toast("另一个 AstraVerse 页面正在播放音乐，请先在该页面暂停");
   }, [set]);
   const ownsMusic = useMusicOwnership(playing, musicUnavailable);
-  const synth = useRef<AudioContext | null>(null);
-  const synthGain = useRef<GainNode | null>(null);
+  useMusicComments({enabled:ownsMusic && preferences.musicComments,agentId,trackId:activeTrack.id,title:activeTrack.name,description:activeTrack.artist || '',audio,onComment:text => {
+    setMessages(p => [...p,{role:'assistant',text,mode:'music-comment',characterName:c.name}]);
+    if (usePreferences.getState().voice) enqueueLiveSpeech({text,voice:agent?.voice,key:`music-comment:${agentId}`,agentId});
+  }});
   const socket = useRef<WebSocket | null>(null);
+  const resourceRecency = useRef<Record<string, string[]>>({});
+  const moreActionsPanel = useStageDisclosure();
   const bottom = useRef<HTMLDivElement>(null);
+  const followConversation = useRef(true);
+  const [awayFromLatest, setAwayFromLatest] = useState(false);
+  function goToLatest(behavior: ScrollBehavior = "instant") {
+    const node = bottom.current?.parentElement;
+    node?.scrollTo({ top: node.scrollHeight, behavior });
+  }
   const file = useRef<HTMLInputElement>(null);
   const uploadKind = useRef("music");
+  const importLock = useRef(false);
+  const conflictApplyRef = useRef(false);
+  const conflictResolver = useRef<((choice: ConflictChoice) => void) | null>(null);
+  const [importConflict, setImportConflict] = useState<{ filename: string; existing: Resource } | null>(null);
+  const [applyConflictAll, setApplyConflictAll] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importReport, setImportReport] = useState<{ total: number; outcomes: ImportOutcome[] } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   function navigate(page: string) {
     if (!pageRoutes[page]) return;
@@ -391,7 +436,7 @@ export default function App() {
       source: "builtin" as const,
       characterIndex: index,
     })),
-    ...builtinLive2DCharacters.map(resource => ({ ...resource, name: agents.profiles[resource.id]?.name || resource.name })),
+    ...live2DCharacters.map(resource => ({ ...resource, name: agents.profiles[resource.id]?.name || resource.name })),
     ...builtinScenes,
     ...worlds.map((w) => ({
       id: `scene-${w.id}`,
@@ -420,6 +465,15 @@ export default function App() {
     .map((r) => ({ ...r, ...catalog.patches[r.id] }));
   const currentResources = useRef<Resource[]>([]);
   currentResources.current = resources;
+  const resourceCatalogKey = JSON.stringify(resources.map(({id,kind,name,description,url})=>({id,kind,name,description,url})));
+  useEffect(() => {
+    let active=true;
+    const source=JSON.parse(resourceCatalogKey) as Resource[];
+    void Promise.all(source.slice(0,200).map(async r=>({id:r.id,kind:r.kind,name:r.name.slice(0,180),description:r.description.slice(0,300),excerpt:r.kind==="book"?await bookExcerpt(r).catch(()=>""):""}))).then(items=>{
+      if(active) return fetch("/api/library/catalog",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({resources:items})});
+    }).catch(()=>{});
+    return ()=>{active=false;};
+  },[resourceCatalogKey]);
   function command(tool: string, args: Record<string, unknown> = {}) {
     if (socket.current?.readyState === 1)
       socket.current.send(
@@ -427,10 +481,18 @@ export default function App() {
       );
   }
   function playback(value: boolean) {
+    musicRevision.current++;
+    musicAutoBlocked.current = !value;
+    if (!value) {
+      const paused = pauseMusic(audio.current, playing => set({ playing }));
+      command("music.pause");
+      return paused;
+    }
     if (value && !visibleTracks.length) {
       toast("音乐库为空，请先添加音乐");
       return;
     }
+    if (value && !activeTrack.url) { toast("没有可播放的音频文件"); return; }
     set({ playing: value });
     command(value ? "music.play" : "music.pause");
   }
@@ -468,7 +530,7 @@ export default function App() {
     }
     if (resource.kind === "music") {
       const index = tracks.findIndex((t) => t.id === resource.id);
-      if (index < 0) return false;
+      if (index < 0 || !tracks[index].url) return false;
       setTrack(index);
       setProgress(0);
       if (index === track && audio.current) audio.current.currentTime = 0;
@@ -544,6 +606,11 @@ export default function App() {
   }
   async function removeResource(resource: Resource): Promise<boolean> {
     try {
+      if (resource.kind === "book") {
+        const response = await fetch(`/api/library/books/${encodeURIComponent(resource.id)}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("书籍删除失败");
+        if (useBookReading.getState().readers[agentId]?.reading?.book_id === resource.id) stopBookSpeech(agentId);
+      }
       if (resource.source === "upload" && resource.persistent !== false)
         await deleteLocalResource(resource.id);
       hideResource(resource.id);
@@ -594,6 +661,7 @@ export default function App() {
     toast("已从当前资源库删除");
     return true;
   }
+  useEffect(() => { if (libraryLoaded) void syncMissing(resources).catch(() => {}); }, [libraryLoaded, assets]);
   useEffect(() => {
     if (!libraryLoaded) return;
     if (!visibleTracks.length && playing) playback(false);
@@ -783,13 +851,22 @@ export default function App() {
           window.dispatchEvent(
             new CustomEvent("astraverse:danmaku", { detail: item }),
           );
+          if (item?.kind === "resource" && item.agent_id === activeAgentRef.current) {
+            const action=item.resource_action;
+            const resource=currentResources.current.find(r=>r.id===action?.resource_id && r.kind===action?.kind && ["music","book"].includes(r.kind));
+            if(resource?.kind === "music" && !musicAutoBlocked.current) currentResourceUse.current(resource);
+            // Book excerpts are spoken in the reply; keep the public stage visible.
+            if(resource?.kind === "book") void importWholeBook(resource).then(() => selectBook(item.agent_id, resource.id, true)).then(() => toast(`从已保存位置阅读：${resource.name}`)).catch(error => toast(error instanceof Error ? error.message : "书籍读取失败"));
+          }
+          if (item?.kind === "control" || (item?.kind === "routine" && ["rest", "ended"].includes(item.routine?.reason))) stopLiveSpeech(item.channel_id);
+          if (item?.kind === "control" && item.reading_agent_id === activeAgentRef.current) stopBookSpeech(item.reading_agent_id);
           if (
             item?.kind === "reply" &&
             item.agent_id === activeAgentRef.current &&
             !useAgents.getState().busy[item.agent_id]
           ) {
-            respond(item.performance, "live");
-            if (item.voice && usePreferences.getState().voice) speak(item.text);
+            if (item.voice && usePreferences.getState().voice) enqueueLiveSpeech({ text: item.text, voice: useAgents.getState().profiles[item.agent_id]?.voice, key: `${item.proactive ? "live-idle" : "live"}:${item.channel_id}`, agentId: item.agent_id, onStart: () => respond(item.performance, "live"), onError: () => toast("角色语音播放失败，请检查语音路由或浏览器播放权限") });
+            else respond(item.performance, "live");
           }
         }
         if (event.type === "speak" && (!event.actor_id || event.actor_id === activeAgentRef.current)) {
@@ -831,25 +908,13 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [action, set]);
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages, busy]);
+    if (followConversation.current) goToLatest();
+  }, [messages, busy, tab]);
   useEffect(() => {
-    if (!ownsMusic || !libraryLoaded || !visibleTracks.length || activeTrack.url) return;
-    const timer = setInterval(
-      () =>
-        setProgress((p) => {
-          const next = p + 0.25;
-          if (next >= tracks[track].duration) {
-            if (loop) return 0;
-            set({ playing: false });
-            return 0;
-          }
-          return next;
-        }),
-      250,
-    );
-    return () => clearInterval(timer);
-  }, [ownsMusic, libraryLoaded, activeTrack.id, activeTrack.url, activeTrack.duration, loop, set]);
+    followConversation.current = true;
+    setAwayFromLatest(false);
+    goToLatest();
+  }, [agentId, tab]);
   useEffect(() => {
     const element = audio.current;
     if (!element) return;
@@ -860,12 +925,13 @@ export default function App() {
     const element = audio.current;
     if (!element) return;
     let cancelled = false;
-    if (ownsMusic && libraryLoaded && activeTrack.url) {
+    if (ownsMusic && useWorld.getState().playing && libraryLoaded && activeTrack.url) {
       void element.play().catch(() => {
         // Source switches abort pending play promises; they are not failures.
         if (cancelled) return;
         set({ playing: false });
-        toast("音频播放失败，请重新导入文件");
+        toast("音频播放失败，请检查音源或浏览器播放权限");
+        setMessages(p => [...p, { role: "assistant", text: "音乐没有播放成功，请检查资料库中的音频文件或浏览器播放权限后重试。" }]);
       });
     } else element.pause();
     return () => {
@@ -873,52 +939,6 @@ export default function App() {
       element.pause();
     };
   }, [ownsMusic, libraryLoaded, activeTrack.id, activeTrack.url, set]);
-  useEffect(() => {
-    if (!ownsMusic || !libraryLoaded || !visibleTracks.length || activeTrack.url) return;
-    const ctx = new AudioContext();
-    synth.current = ctx;
-    const gain = ctx.createGain();
-    synthGain.current = gain;
-    gain.gain.value = (volume / 100) * 0.055;
-    gain.connect(ctx.destination);
-    const stopAnalysis = analyseMusic(gain, ctx);
-    let disposed = false;
-    void ctx.resume().catch(() => {
-      if (disposed) return;
-      set({ playing: false });
-      toast("请点击播放以启用声音");
-    });
-    const frequencies =
-      track === 0
-        ? [130.81, 196, 261.63, 329.63]
-        : track === 1
-          ? [146.83, 220, 293.66, 369.99]
-          : [110, 164.81, 220, 277.18];
-    const oscillators: OscillatorNode[] = [];
-    frequencies.forEach((f, i) => {
-      const oscillator = ctx.createOscillator();
-      oscillator.type = "sine";
-      oscillator.frequency.value = f;
-      const env = ctx.createGain();
-      env.gain.value = 0;
-      env.gain.linearRampToValueAtTime(0.4 / (i + 1), ctx.currentTime + 2);
-      oscillator.connect(env);
-      env.connect(gain);
-      oscillator.start();
-      oscillators.push(oscillator);
-    });
-    return () => {
-      disposed = true;
-      stopAnalysis();
-      gain.disconnect();
-      oscillators.forEach(oscillator => { oscillator.stop(); oscillator.disconnect(); });
-      void ctx.close();
-      if (synth.current === ctx) {
-        synth.current = null;
-        synthGain.current = null;
-      }
-    };
-  }, [ownsMusic, libraryLoaded, activeTrack.id, activeTrack.url]);
   useEffect(() => {
     if (
       !ownsMusic ||
@@ -952,19 +972,11 @@ export default function App() {
     },
     [],
   );
-  useEffect(() => {
-    if (synth.current && synthGain.current)
-      synthGain.current.gain.setTargetAtTime(
-        (volume / 100) * 0.055,
-        synth.current.currentTime,
-        0.1,
-      );
-  }, [volume]);
   const [computerOpen,setComputerOpen] = useState(false);
   const watchOpen = useWatch(s => s.open);
   const postureCapability = useCharacterCapabilities(s => s.current?.canPosture ?? false);
   const animate = (a: Action) => {
-    if (isRestAction(a) && !characterCapabilities()?.canPosture) { toast("当前模型不支持此动作，请选择具有完整人形骨骼的 VRM 角色"); return; }
+    if (isRestAction(a) && !characterCapabilities()?.canPosture) { toast("当前模型不支持此动作，请选择具有完整人形骨骼的 VRM 角色"); return false; }
     if (isRestAction(a)) { pauseAutomaticPerformance(); preferences.set({ framing: "full" }); }
 
     if (useWorld.getState().furniture) set({action:"idle"});
@@ -983,8 +995,16 @@ export default function App() {
           arguments: { animation: a },
         }),
       );
+    return true;
   };
   async function send(text = input, selectionId?: string, viewing?: ViewingContext) {
+    if (!selectionId && musicPauseIntent(text)) {
+      const paused = playback(false);
+      setInput("");
+      setMessages(p => [...p, { role: "user", text: text.trim() }, { role: "assistant", text: paused ? "音乐已暂停，保留当前播放位置。你再次要求播放后才会继续。" : "暂停没有成功，请点击播放器的暂停按钮重试。" }]);
+      return;
+    }
+    const requestedMusicRevision = musicRevision.current;
     if (!state.characterVisible) {
       toast("请先添加并选择角色");
       return;
@@ -999,23 +1019,54 @@ export default function App() {
     const problem = inputProblem(text);
     if (problem) { toast(problem); return; }
     text = text.trim();
-    // Explicit short stage commands execute even if chat inference is unavailable.
-    const danceIntent = /^(请|可以|能不能|你|帮我|给我|再|来|一下|一段|一支|个|吧|呀|啊|！|!|。|\s)*(跳舞|跳个舞|跳支舞|跳一支舞|跳一段舞|dance)(一下|一段|吧|呀|啊|！|!|。|\s)*$/i.test(text.trim());
-    const restIntent = /^(?:请|你|能不能|可以)?(?:坐下|蹲下|躺下睡觉|睡觉|站起来|起床|醒来)(?:一下|吧|了|。|！|!)?$/.test(text);
-    if (restIntent && !/坐下|睡觉/.test(text)) animate(/蹲下/.test(text) ? "crouch" : "idle");
-    else if (danceIntent) animate("dance");
-    else if (/^(停止|停下|别|不要)(跳舞|舞蹈)(了|吧|！|!|。|\s)*$/.test(text.trim())) animate("idle");
-    stopHumming();
     const interactionSnapshot = {sceneUrl:useWorld.getState().sceneUrl,modelUrl:activeModelUrl(),revision:useWorld.getState().interactionRevision,primaryBusy:useWorld.getState().walkMode || !!useWorld.getState().furniture || ["dance","jump"].includes(useWorld.getState().action)};
     const interactionTargets = availableInteractions();
     const epoch = useAgents.getState().epochs[agentId] || 0;
+    followConversation.current = true;
+    setAwayFromLatest(false);
     setInput("");
     setMessages((p) => [...p, { role: "user", text }]);
     setBusy(true);
-    stopCharacterSpeech();
-    stopHumming();
+    if (!useBookReading.getState().readers[agentId]?.reading?.active) stopCharacterSpeech();
     beginTurn();
+    let operationInFlight: Operation | undefined;
     try {
+      const readingCommand = parseReadingCommand(text, resources.filter(readableBook).map(b => b.name.replace(/\.(txt|md|epub)$/i, "")));
+      if (readingCommand) {
+        const { reading: current } = await readingRequest<{ reading: Reading | null }>(agentId);
+        if (activeAgentRef.current !== agentId || (useAgents.getState().epochs[agentId] || 0) !== epoch) return;
+        updateReader(agentId, { reading: current });
+        let reply = "";
+        if (readingCommand.action === "pause") {
+          if (current) { stopBookSpeech(agentId); await selectBook(agentId, current.book_id, false); }
+          reply = current ? "已暂停阅读，记住当前位置了。" : "现在没有正在朗读的书。";
+        } else {
+          const books = resources.filter(readableBook);
+          const matches = readingCommand.title ? books.filter(book => book.name.replace(/\.(txt|md|epub)$/i, "") === readingCommand.title || book.name === readingCommand.title) : [];
+          const book = matches.length === 1 ? matches[0] : !readingCommand.title && current ? books.find(b => b.id === current.book_id) : !readingCommand.title && books.length === 1 ? books[0] : undefined;
+          if (!book) reply = readingCommand.title ? `资料库中没有找到唯一匹配的《${readingCommand.title}》，请确认书名，或在书籍列表点击朗读。` : "请告诉我要读哪本书，例如：读《红楼梦》。也可以在资料库的书籍列表中选择。";
+          else {
+            stopBookSpeech(agentId);
+            await importWholeBook(book);
+            if (activeAgentRef.current !== agentId || (useAgents.getState().epochs[agentId] || 0) !== epoch) return;
+            if (readingCommand.toEnd !== undefined) usePreferences.getState().set({ bookReadToEnd: readingCommand.toEnd });
+            usePreferences.getState().set({ voice: true });
+            const selectedReading = await selectBook(agentId, book.id, true, { from_body: readingCommand.fromBody, page: readingCommand.page, chapter: readingCommand.chapter, page_delta: readingCommand.page_delta, restart: readingCommand.restart });
+            reply = `开始从${readingCommand.fromBody ? "正文起点" : "保存的位置"}读《${book.name}》。${usePreferences.getState().bookReadToEnd ? "会持续读到全书结束，随时可以叫我暂停。" : "读完当前一段就停。"}`;
+            if (readingCommand.page) reply = `已跳到《${book.name}》第${readingCommand.page}阅读页开始朗读（每页500字，不对应纸质书页码）。`;
+            if (readingCommand.chapter) reply = `已定位到《${book.name}》的「${selectedReading.chapter}」开始朗读。`;
+            if (readingCommand.page_delta) reply = `已跳到第${Math.floor(selectedReading.offset / 500) + 1}阅读页开始朗读（每页500字）。`;
+            if (readingCommand.restart) reply = `已回到《${book.name}》开头重新朗读。`;
+          }
+        }
+        if (activeAgentRef.current !== agentId || (useAgents.getState().epochs[agentId] || 0) !== epoch) return;
+        endTurn();
+        setMessages(p => [...p, { role: "assistant", text: reply }]);
+        return;
+      }
+      const bookCandidates = agent?.allow_resources && (agent.team.resource_initiative || /书|阅读|读/.test(text)) ? resources.filter((r) => r.kind === "book") : [];
+      const mentionedBooks = bookCandidates.filter((r) => text.includes(r.name));
+      const excerpts = new Map(await Promise.all([...mentionedBooks, ...bookCandidates.filter((r) => !mentionedBooks.includes(r))].slice(0, 4).map(async (book) => [book.id, await bookExcerpt(book).catch(() => "")] as const)));
       const r = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1023,6 +1074,7 @@ export default function App() {
           message: text,
           scene_interactions: interactionTargets.map(({id,kind,label})=>({id,kind,label})),
           character_capabilities: availableAbilities(),
+          can_posture: postureCapability,
           current_activity: useWorld.getState().singing ? "sing" : useWorld.getState().walkMode ? useWorld.getState().movementMode : useWorld.getState().action,
           viewing: viewing || useWatch.getState().context || undefined,
           character: c.name.slice(0, 40),
@@ -1033,12 +1085,14 @@ export default function App() {
             const { modelUrl: _url, ...data } = cap;
             return data;
           })(),
-          current_music_id: tracks[track]?.id,
+          current_music_id: activeTrack.url ? activeTrack.id : undefined,
+          music_playing: !!audio.current && !audio.current.paused && !audio.current.ended,
           current_scene_id: resources.find(
             (r) =>
               r.kind === "scene" &&
               (state.sceneUrl ? r.url === state.sceneUrl : r.preset === world),
           )?.id,
+          recent_resource_ids: resourceRecency.current[agentId] || [],
           resources: resources
             .filter((r) =>
               [
@@ -1057,6 +1111,7 @@ export default function App() {
               kind,
               name: name.slice(0, 180),
               description: description.slice(0, 300),
+              excerpt: excerpts.get(id) || "",
             })),
           pending: pendingSelection
             ? { kind: pendingSelection.kind, ids: pendingSelection.ids }
@@ -1066,59 +1121,110 @@ export default function App() {
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(
-          typeof err.detail === "string"
-            ? err.detail
-            : JSON.stringify(err.detail || "对话服务暂时不可用"),
-        );
+        throw new Error(friendlyError(err.detail || err, r.status));
       }
       const data = await r.json();
+      operationInFlight = data.operation;
       if ((useAgents.getState().epochs[agentId] || 0) !== epoch) return;
       const isCurrent = activeAgentRef.current === agentId;
       const canApply = isCurrent && activeModelUrl() === interactionSnapshot.modelUrl && useWorld.getState().sceneUrl === interactionSnapshot.sceneUrl && useWorld.getState().interactionRevision === interactionSnapshot.revision;
-      if (canApply) respond(data.performance, data.performance_source);
+      let executionStatus: ExecutionStatus = "accepted";
+      let executionNote = "浏览器已接收操作，尚未确认完成";
+      const sameActor = () => activeAgentRef.current === agentId && (useAgents.getState().epochs[agentId] || 0) === epoch;
+      const unchanged = () => sameActor() && activeModelUrl() === interactionSnapshot.modelUrl && useWorld.getState().sceneUrl === interactionSnapshot.sceneUrl && useWorld.getState().interactionRevision === interactionSnapshot.revision;
       let applied = true;
       let replyCharacter = c.name;
-      const resourceAction = data.resource_action as ResourceAction | undefined;
-      if (resourceAction && !canApply)
-        data.reply = "你已切换角色，这次资源操作已取消。回来后可以重新选择。";
+      let resourceAction = data.resource_action as ResourceAction | undefined;
+      if (resourceAction && musicRevision.current !== requestedMusicRevision && (resourceAction.type.startsWith("music.") || (resourceAction.type === "resource.use" && resourceAction.kind === "music"))) {
+        resourceAction = undefined;
+        executionStatus = "cancelled"; executionNote = "手动音乐操作使较早计划失效";
+        data.reply = "你已手动调整播放器，本次较早的音乐操作已取消。";
+      }
+      if (data.operation && !canApply) {
+        executionStatus = "cancelled"; executionNote = "角色、场景或手动姿态已变化";
+        data.reply = "当前角色或场景已变化，这次较早的操作已取消。";
+      }
       if (canApply && resourceAction?.type === "resource.use") {
         const resource = currentResources.current.find(
           (r) =>
             r.id === resourceAction.resource_id &&
             r.kind === resourceAction.kind,
         );
-        applied = !!resource && currentResourceUse.current(resource);
-        if (
-          applied &&
-          data.action === "dance" &&
-          resource &&
-          ["music", "scene"].includes(resource.kind)
-        )
-          animate("dance");
+        if (resource?.kind === "book" && /读|阅读|朗读/.test(text)) {
+          await importWholeBook(resource);
+          if (!unchanged()) { applied = false; executionStatus = "cancelled"; }
+          else {
+            stopBookSpeech(agentId);
+            usePreferences.getState().set({ voice: true });
+            await selectBook(agentId, resource.id, true);
+            applied = sameActor();
+            if (!applied) { await selectBook(agentId, resource.id, false); executionStatus = "cancelled"; }
+            else { data.reply = `正在从保存位置准备朗读《${resource.name}》。`; executionNote = "阅读器已接受任务，正文播放完成后才推进书签"; }
+          }
+        } else applied = !!resource && currentResourceUse.current(resource);
+        if (applied && resource && resource.kind !== "music" && !(resource.kind === "book" && /读|阅读|朗读/.test(text))) {
+          data.reply = resource.kind === "scene" ? `正在加载场景「${resource.name}」。` : resource.kind === "character" ? `正在切换到「${resource.name}」。` : resource.kind === "lyrics" ? `正在读取并应用「${resource.name}」的歌词。` : `正在打开「${resource.name}」的预览。`;
+          executionNote = "已提交资源加载请求，尚未取得渲染或加载完成回执";
+        }
+        if (applied && resource?.kind === "music" && resource.url) {
+          const playRevision = musicRevision.current;
+          executionStatus = await waitForPlayback(audio.current, resource.url, () => sameActor() && musicRevision.current === playRevision);
+          applied = executionStatus === "confirmed";
+          data.reply = applied ? `正在播放《${resource.name}》。` : executionStatus === "cancelled" ? "播放器已被手动调整，较早的点歌请求已取消。" : "音乐没有开始播放，请检查音源或浏览器播放权限。";
+          executionNote = applied ? "浏览器已确认目标音源开始播放" : data.reply;
+          if (applied && data.follow_up_action === "dance") {
+            if (unchanged() && animate("dance")) { executionNote += "；随后已应用舞蹈动作"; data.reply += "开始跟着音乐跳舞。"; }
+            else { executionNote += "；身体状态已变化，后续舞蹈取消"; data.reply += "当前身体状态已变化，这次没有启动舞蹈。"; }
+          }
+        }
 
-        if (!applied) data.reply = "这项资源已经不在当前列表里了，请重新选择。";
+        if (applied && resource) resourceRecency.current[agentId] = [...(resourceRecency.current[agentId] || []), resource.id].slice(-12);
+        if (!applied && resource?.kind !== "music") {
+          if (executionStatus !== "cancelled") executionStatus = "failed";
+          data.reply = executionStatus === "cancelled" ? "角色或场景已变化，资源操作已取消。" : "这项资源没有执行成功，请重新选择。";
+          executionNote = data.reply;
+        }
       } else if (canApply && resourceAction?.type === "music.pause") {
-        playback(false);
-        animate("idle");
+        const paused = playback(false);
+        data.reply = paused ? "音乐已暂停，保留当前播放位置。" : "暂停没有成功，请点击播放器的暂停按钮重试。";
+        executionStatus = paused ? "confirmed" : "failed"; executionNote = data.reply;
       } else if (canApply && resourceAction?.type === "music.resume") {
-        playback(true);
-        animate("wave");
+        if (!visibleTracks.length || !activeTrack.url) data.reply = "音乐库中没有可播放的音乐，请先在资料库添加真实音频。";
+        else {
+          playback(true);
+          const playRevision = musicRevision.current;
+          executionStatus = await waitForPlayback(audio.current, activeTrack.url, () => sameActor() && musicRevision.current === playRevision);
+          data.reply = executionStatus === "confirmed" ? `已继续播放《${activeTrack.name}》。` : "音乐未能继续播放，请检查播放器状态。";
+        }
+        if (!visibleTracks.length || !activeTrack.url) executionStatus = "failed";
+        executionNote = data.reply;
       }
-      const abilityPlan = data.character_ability;
+      const abilityPlan = resourceAction ? undefined : data.character_ability;
       if (abilityPlan) {
         const priorityAllows = !interactionSnapshot.primaryBusy || data.interaction_origin === "explicit" || ["headphones_on","headphones_off"].includes(abilityPlan);
         const executed = canApply && priorityAllows && !resourceAction && await applyCharacterAbility(abilityPlan);
         if (!executed) data.reply = "能力没有执行：角色或指令已变化，或当前模型/场景/浏览器不支持。";
         else data.reply += "\n（能力已执行）";
+        executionStatus = executed ? "confirmed" : canApply ? "failed" : "cancelled"; executionNote = data.reply;
       }
-      const stagePlan = data.stage_interaction;
+      const stagePlan = resourceAction || abilityPlan ? undefined : data.stage_interaction;
       if (stagePlan) {
         const currentSceneId = currentResources.current.find(r=>r.kind === "scene" && r.url===useWorld.getState().sceneUrl)?.id;
         const executed = canApply && (!interactionSnapshot.primaryBusy || data.interaction_origin === "explicit") && !abilityPlan && !resourceAction && stagePlan.scene_id === currentSceneId && executeStageInteraction(stagePlan,interactionSnapshot);
         if (!executed) data.reply = "动作没有执行：角色或场景已切换，或家具/人形动作能力不可用。请重新发出指令。";
         else data.reply += `\n（已执行：${stagePlan.kind === "sleep" ? "床上躺睡" : stagePlan.kind === "study" ? "桌前学习" : "椅上坐下"}）`;
+        executionStatus = executed ? "confirmed" : canApply ? "failed" : "cancelled"; executionNote = data.reply;
       }
+      if (canApply && !resourceAction && !stagePlan && !abilityPlan && executionStatus !== "cancelled") {
+        if (data.action) { executionStatus = animate(data.action) ? "confirmed" : "failed"; executionNote = executionStatus === "confirmed" ? "浏览器已应用身体动作" : "当前模型不支持该动作"; if (executionStatus === "failed") data.reply = "当前模型不支持这个身体动作，本次没有执行。"; }
+        if (data.pose) { set({ pose: { ...useWorld.getState().pose, ...data.pose } }); command("character.pose", data.pose); executionStatus = "confirmed"; executionNote = "浏览器已应用姿态参数"; }
+      }
+      if (data.operation) {
+        const synced = await acknowledgeOperation(agentId, data.operation, executionStatus, executionNote, data.reply);
+        if (!synced && sameActor()) toast("执行结果未同步，后续以播放器和舞台当前状态为准");
+      }
+      operationInFlight = undefined;
+      if (!sameActor()) return;
       const pendingToken = data.pending ? crypto.randomUUID() : undefined;
       if (data.mode === "resource-agent")
         setPendingSelection(
@@ -1129,6 +1235,7 @@ export default function App() {
         {
           role: "assistant",
           text: data.reply,
+          sources: data.sources,
           mode: data.mode,
           model: data.model,
           provider: data.provider,
@@ -1143,27 +1250,23 @@ export default function App() {
           model: data.model,
           provider: data.provider,
         });
-      if (canApply && !useWorld.getState().walkMode && !useWorld.getState().singing && !useWorld.getState().furniture && data.action && !resourceAction && !stagePlan && !abilityPlan) animate(data.action);
-      if (canApply && data.pose && !resourceAction && !stagePlan && !abilityPlan) {
-        set({ pose: { ...useWorld.getState().pose, ...data.pose } });
-        command("character.pose", data.pose);
-      }
-      if (canApply && data.expression && !resourceAction) {
+      if (unchanged() && data.expression && !resourceAction && performance.now() >= usePerformance.getState().manualUntil) {
         set({ expression: data.expression });
         command("character.emote", {
           emotion: data.expression,
           intensity: 0.8,
         });
       }
-      if (
-        canApply &&
-        !useWorld.getState().singing &&
-        activeAgentRef.current === agentId &&
-        usePreferences.getState().voice
-      ) {
-        speak(data.reply, `${agentId}-${messages.length + 1}`);
-      }
+      if (canApply && !useWorld.getState().singing && sameActor() && usePreferences.getState().voice) {
+        const callbacks = { onStart: () => { if (sameActor()) respond(data.performance, data.performance_source); }, onEnd: () => { if (sameActor()) endTurn(); }, onError: () => { if (sameActor()) endTurn(); }, onCancel: () => { if (sameActor()) endTurn(); } };
+        if (useBookReading.getState().readers[agentId]?.reading?.active) {
+          endTurn();
+          enqueueLiveSpeech({ text: data.reply, key: `chat:${agentId}:${crypto.randomUUID()}`, agentId, voice: agent?.voice, ...callbacks });
+        } else void speakCharacter(data.reply, agent?.voice, `${agentId}-${messages.length + 1}`, agentId, callbacks).catch(() => toast("角色语音播放失败，请检查语音配置"));
+      } else if (canApply) respond(data.performance, data.performance_source);
+      else if (sameActor()) endTurn();
     } catch (error) {
+      if (operationInFlight) await acknowledgeOperation(agentId, operationInFlight, "failed", error instanceof Error ? error.message : "执行失败", "本次操作未完成，请检查资源或服务状态后重试。");
       if ((useAgents.getState().epochs[agentId] || 0) !== epoch) return;
       if (activeAgentRef.current === agentId) endTurn();
       setMessages((p) => [
@@ -1172,7 +1275,7 @@ export default function App() {
           role: "assistant",
           mode: "error",
           text: online
-            ? `对话请求失败：${error instanceof Error ? error.message : "未知错误"}。请检查后端模型配置后重试。`
+            ? friendlyError(error instanceof Error ? error.message : error)
             : "当前处于本地离线模式。你仍然可以切换场景、播放音乐，或使用下方快捷动作。启动 Python 后端后即可连接对话服务。",
         },
       ]);
@@ -1191,13 +1294,15 @@ export default function App() {
       })
       .sort((a, b) => a.at - b.at);
   }
-  function upload(kind: string) {
-    replacing.current = null;
+  function upload(kind: string, replacement: Resource | null = null) {
+    if (importLock.current) { toast("正在导入文件，请稍候"); return; }
+    replacing.current = replacement;
     uploadKind.current = kind;
     if (file.current) {
+      file.current.multiple = !replacement;
       file.current.accept =
         kind === "book"
-          ? ".txt,.md,.pdf,.epub"
+          ? ".txt,.md,.pdf,.epub,.docx,.srt,.vtt"
           : kind === "music"
             ? "audio/*"
             : kind === "lyrics"
@@ -1212,33 +1317,30 @@ export default function App() {
       file.current.click();
     }
   }
-  async function imported(f: File | undefined) {
-    if (!f) return;
+  async function imported(f: File, kind: string, previous: Resource | null, report: (message: string) => void, onSaved: (resource: Resource) => void): Promise<boolean> {
     const limitMB = normalizeResourceLimit(usePreferences.getState().resourceLimitMB);
     if (f.size > resourceLimitBytes(limitMB)) {
-      toast(`文件不能超过 ${limitMB} MB，可在设置 → 外观与体验中调整`);
-      return;
+      report(`文件不能超过 ${limitMB} MB，可在设置 → 外观与体验中调整`);
+      return false;
     }
-    const kind = uploadKind.current;
-    const previous = replacing.current;
-    if (kind === "book" && !/\.(txt|md|pdf|epub)$/i.test(f.name)) {
-      toast("书籍支持TXT、Markdown、PDF或EPUB");
-      return;
+    if (kind === "book" && !/\.(txt|md|pdf|epub|docx|srt|vtt)$/i.test(f.name)) {
+      report("资料支持TXT、Markdown、PDF、EPUB、DOCX和SRT/VTT字幕");
+      return false;
     }
     if (kind === "lyrics" && !parseLyrics(await f.text()).length) {
-      toast("未找到有效 LRC 时间戳");
-      return;
+      report("未找到有效 LRC 时间戳");
+      return false;
     }
     if (
       (kind === "character" || kind === "scene") &&
       !(kind === "character" ? /\.(vrm|glb|zip)$/i : /\.glb$/i).test(f.name)
     ) {
-      toast(
+      report(
         kind === "character"
           ? "请选择 VRM、GLB 或 Live2D ZIP 模型包"
           : "请选择单文件 GLB 场景",
       );
-      return;
+      return false;
     }
     if (
       (kind === "music" && !f.type.startsWith("audio/")) ||
@@ -1248,13 +1350,13 @@ export default function App() {
           f.type,
         ))
     ) {
-      toast("请选择受支持的媒体文件");
-      return;
+      report("请选择受支持的媒体文件");
+      return false;
     }
     const live2d = kind === "character" && /\.zip$/i.test(f.name);
     if (live2d) {
       try { const pack = await openLive2DPackage(f); pack.dispose(); }
-      catch (error) { toast(error instanceof Error ? error.message : "Live2D 模型包无效"); return; }
+      catch (error) { report(error instanceof Error ? error.message : "Live2D 模型包无效"); return false; }
     }
     const url = URL.createObjectURL(f) + (live2d ? "#live2d" : "");
     const id = previous?.id || `upload-${crypto.randomUUID()}`;
@@ -1276,11 +1378,18 @@ export default function App() {
       resource.persistent = false;
       resource.description = "仅当前会话可用";
     }
+    if (kind === "book" && readableBook(resource) && (!previous || persistent)) {
+      try { await importWholeBook(resource); }
+      catch (error) { report(`文件已保留，整本朗读暂不可用：${error instanceof Error ? error.message : "导入失败"}`); }
+    }
+    if (kind === "book" && !readableBook(resource) && (!previous || persistent)) {
+      try { await indexFile(resource); } catch (error) { report(`文件已保留，检索暂不可用：${error instanceof Error ? error.message : "索引失败"}`); }
+    }
     if (previous) {
       if (!persistent) {
         URL.revokeObjectURL(url.split("#")[0]);
-        toast("替换文件保存失败，原资源保留");
-        return;
+        report("替换文件保存失败，原资源保留");
+        return false;
       }
       setAssets((p) => [...p.filter((r) => r.id !== id), resource]);
       if (kind === "music")
@@ -1308,8 +1417,9 @@ export default function App() {
       if (previous.url?.startsWith("blob:") && previous.url !== url)
         URL.revokeObjectURL(previous.url.split("#")[0]);
       replacing.current = null;
-      toast("源文件已替换，资源ID保留");
-      return;
+      onSaved(resource);
+      report("源文件已替换，资源ID保留");
+      return true;
     }
     if (kind === "music") {
       playback(false);
@@ -1337,11 +1447,63 @@ export default function App() {
     }
     if (kind === "lyrics") setLyrics(parseLyrics(await f.text()));
     setAssets((p) => [...p, resource]);
-    toast(
+    onSaved(resource);
+    if (kind === "character") setRevealedResource(id);
+    report(
       persistent
         ? "资源已保存到本地资源库"
         : "资源已导入，但本地存储不可用，仅本次会话可用",
     );
+    return true;
+  }
+  async function importedFiles(files: File[]) {
+    if (!files.length || importLock.current) return;
+    const kind = uploadKind.current;
+    const previous = replacing.current;
+    const selected = previous ? files.slice(0, 1) : files;
+    importLock.current = true;
+    setImportBusy(true);
+    setImportReport({ total: selected.length, outcomes: [] });
+    setApplyConflictAll(false);
+    conflictApplyRef.current = false;
+    let policy: ConflictChoice | undefined;
+    let batchCatalog = [...currentResources.current];
+    try {
+      const outcomes = await importBatch(selected, async (f, report) => {
+        let target = previous;
+        const duplicate = !previous && duplicateResource(f.name, kind, batchCatalog);
+        if (duplicate) {
+          const choice = policy || await new Promise<ConflictChoice>(resolve => {
+            conflictResolver.current = choice => {
+              if (conflictApplyRef.current) policy = choice;
+              setImportConflict(null);
+              resolve(choice);
+            };
+            setImportConflict({ filename: f.name, existing: duplicate });
+          });
+          if (choice === "skip") { report("已保留原文件，跳过本次导入"); return "skipped"; }
+          if (choice === "replace") target = duplicate;
+          else {
+            const filename = availableFilename(f.name, kind, batchCatalog);
+            f = new File([f], filename, { type: f.type, lastModified: f.lastModified });
+            report(`两个都保留，新文件命名为：${filename}`);
+          }
+        }
+        return imported(f, kind, target, report, resource => {
+          batchCatalog = [...batchCatalog.filter(r => r.id !== resource.id), resource];
+        });
+      }, outcomes => {
+        setImportReport({ total: selected.length, outcomes });
+      });
+      const successes = outcomes.filter(o => o.ok).length;
+      toast(selected.length > 1 ? `已导入 ${successes} / ${selected.length} 个文件` : outcomes[0].messages.join("；") || "导入完成");
+    } finally {
+      conflictResolver.current = null;
+      setImportConflict(null);
+      replacing.current = null;
+      importLock.current = false;
+      setImportBusy(false);
+    }
   }
   function save() {
     const config = {
@@ -1406,7 +1568,7 @@ export default function App() {
   const currentLyric = lyrics.filter((l) => l.at <= progress).at(-1)?.text;
   return (
     <div
-      className={`app companion-layout theme-${theme.id} ${light ? "light" : ""} ${preferences.focusMode ? "focus-mode" : ""}`}
+      className={`app companion-layout product-ui ${visibleTracks.length ? "has-music-player" : ""} ${nav === "创作空间" ? "studio-workspace" : ""} theme-${theme.id} ${light ? "light" : ""} ${preferences.focusMode ? "focus-mode" : ""}`}
       style={themeVariables(theme)}
     >
       <aside className="sidebar">
@@ -1427,24 +1589,15 @@ export default function App() {
         <button className="workspace" onClick={() => setModal("工作空间")}>
           <span className="workspace-icon">A</span>
           <span>
-            我的宇宙<small>个人工作空间</small>
+            个人工作空间<small>AstraVerse Studio</small>
           </span>
           <ChevronDown size={15} />
         </button>
-        <div className="nav-label">WORKSPACE</div>
-        <nav>
-          {navigation.map((n) => (
-            <button
-              className={nav === n.name ? "active" : ""}
-              key={n.name}
-              onClick={() => {
-                navigate(n.name);
-              }}
-            >
-              <n.icon size={18} />
-              {n.name}
-            </button>
-          ))}
+        <nav aria-label="主导航">
+          {["工作台", "资源管理"].map(group => <div className="shell-nav-group" key={group}>
+            <span className="shell-nav-label">{group}</span>
+            {navigation.filter(n => n.group === group).map(n => <button className={nav === n.name ? "active" : ""} key={n.name} title={n.name} aria-current={nav === n.name ? "page" : undefined} onClick={() => navigate(n.name)}><n.icon size={18} />{n.name}</button>)}
+          </div>)}
         </nav>
         <div className="sidebar-bottom">
           <button className="bottom-link" onClick={() => setModal("设置")}>
@@ -1465,7 +1618,7 @@ export default function App() {
       <div className="main-shell">
         <header>
           <div className="breadcrumbs">
-            我的宇宙 <ChevronRight size={13} />
+            工作空间 <ChevronRight size={13} />
             <span>{nav}</span>
           </div>
           <div className="header-actions">
@@ -1493,46 +1646,39 @@ export default function App() {
           </div>
         </header>
         <main className="companion-page" hidden={nav !== "创作空间"}>
-          <section className="page-heading">
-            <div className="eyebrow">A LITTLE SPACE, JUST FOR YOU</div>
+          <section className="page-heading studio-heading">
             <div className="heading-row">
-              <div>
-                <h1>
-                  和{c.name}，共度此刻。<span> ✧</span>
-                </h1>
-                <p>一个安静的角落，留给你和喜欢的伙伴。</p>
+              <div className="studio-heading-copy">
+                <h1>直播工作台</h1>
+                <p>预览角色、自然对话，准备你的下一场直播。</p>
               </div>
               <div className="heading-tools">
-                <button className="secondary" title="视频陪看" onClick={() => useWatch.setState({open:true})}><Video size={15}/>视频陪看</button>
-                <button className="secondary" title="电脑操作" onClick={() => setComputerOpen(true)}><Monitor size={15}/>电脑操作</button>
-                <button
-                  className={`secondary focus-button ${preferences.focusMode ? "selected" : ""}`}
-                  onClick={() =>
-                    preferences.set({ focusMode: !preferences.focusMode })
-                  }
-                  aria-pressed={preferences.focusMode}
-                >
-                  <Focus size={15} />
-                  {preferences.focusMode ? "退出沉浸" : "沉浸模式"}
-                </button>
-                <button className="primary" onClick={save}>
-                  <Check size={15} />
-                  保存空间
-                </button>
+                <button className="secondary studio-music-entry" onClick={() => navigate("音乐与舞蹈")}><Music2 size={15}/>音乐</button>
+                <button className="secondary preview-toggle" aria-pressed={!previewCollapsed} onClick={() => setPreviewCollapsed(!previewCollapsed)}>{previewCollapsed ? "显示角色" : "收起预览"}</button>
+                <button className="primary" onClick={() => { setTab("直播"); document.querySelector(".companion-page .chat-panel")?.scrollIntoView({ behavior:"smooth", block:"nearest" }); }}><Radio size={15}/>直播模式</button>
+                <details className="studio-tools">
+                  <summary aria-label="更多工作台工具"><MoreHorizontal size={18}/></summary>
+                  <div className="studio-tools-menu" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) (event.currentTarget.parentElement as HTMLDetailsElement).open = false; }}>
+                    <button onClick={() => { useWatch.setState({open:true}); }}><Video size={15}/>视频陪看</button>
+                    <button onClick={() => setComputerOpen(true)}><Monitor size={15}/>电脑操作</button>
+                    <button onClick={() => { setAgentSettingsSection("persona"); setModal("角色 Agent"); }}><Settings2 size={15}/>角色设定</button>
+                    <button onClick={() => navigate("资源库")}><FolderOpen size={15}/>打开资源库</button>
+                    <button aria-pressed={preferences.focusMode} onClick={() => preferences.set({focusMode:!preferences.focusMode})}><Focus size={15}/>{preferences.focusMode ? "退出沉浸" : "沉浸模式"}</button>
+                    <button onClick={save}><Check size={15}/>保存空间</button>
+                  </div>
+                </details>
               </div>
             </div>
           </section>
           <ComputerPanel open={computerOpen} active={nav === "创作空间"} agentId={agentId} onClose={() => setComputerOpen(false)} />
-          <div className={`studio-grid${watchOpen ? " watching" : ""}`} ref={stage}>
+          <div className={`studio-grid${watchOpen ? " watching" : ""}${previewCollapsed ? " preview-collapsed" : ""}`} ref={stage}>
             <WatchPanel active={nav === "创作空间"} busy={busy || !!historyLoading || !state.characterVisible} onPauseMusic={() => playback(false)} onDiscuss={(text,view) => void send(text,undefined,view)} />
-            <section className="stage-panel">
+            <section className={`stage-panel${isLive2D(state.modelUrl || "") ? " is-live2d" : ""}`}>
               <div className="stage-top">
                 <div className="stage-title">
                   <span className="live-dot" />
-                  {c.name}{" "}
-                  <span className="tag">
-                    {action === "dance" ? "舞蹈 · 全身取景" : "陪伴中"}
-                  </span>
+                  <span className="preview-label">角色预览</span>
+                  <button className="stage-character-picker" onClick={() => navigate("虚拟角色")} title="切换角色">{c.name}<ChevronDown size={12}/></button>
                 </div>
                 <div className="stage-view-switch" aria-label="角色展示方式">
                   {(["portrait", "full", "world"] as const).map((view) => (
@@ -1559,7 +1705,7 @@ export default function App() {
                   <Suspense
                     fallback={<div className="loading">正在展开你的宇宙…</div>}
                   >
-                    <Stage active={nav === "创作空间"} />
+                    <Stage active={nav === "创作空间"} onSceneSelect={scene => { useResource(scene); }} />
                   </Suspense>
                 </RenderBoundary>
                 {!state.characterVisible && (
@@ -1645,7 +1791,7 @@ export default function App() {
                   <ChevronDown size={14} />
                 </button>
               </div>
-              <div className="stage-action-dock" aria-label="角色休息动作">
+              <div className="stage-action-dock" aria-label="角色动作">
                 <button onClick={() => animate("wave")}>
                   <Heart size={14} />
                   打个招呼
@@ -1680,10 +1826,18 @@ export default function App() {
                   )}
                   {action === "dance" ? "结束舞蹈" : "跳一支舞"}
                 </button>
-                {([{id:"sit",label:"坐下"},{id:"crouch",label:"蹲下"},{id:"sleep",label:"睡觉"}] as const).map(item => <button key={item.id} disabled={!postureCapability} title={!postureCapability ? "需要完整人形骨骼的 VRM 角色" : undefined} aria-pressed={action === item.id} onClick={() => (item.id === "sit" || item.id === "sleep") && availableInteractions().some(target=>target.kind===item.id) ? interactFurniture(item.id) : animate(item.id)}>{item.label}</button>)}
-                {([{kind:"sleep",label:"上床睡觉"},{kind:"study",label:"坐下学习"},{kind:"sit",label:"坐到椅子"}] as const).map(item => <button key={item.kind} disabled={!postureCapability || !availableInteractions().some(target=>target.kind===item.kind)} title="也可以点击场景中的床或书桌；床铺需卧室；书桌需卧室或教室；椅子也支持公园长椅" aria-pressed={state.furniture?.kind === item.kind} onClick={() => interactFurniture(item.kind)}>{item.label}</button>)}
+                <details ref={moreActionsPanel} className="stage-more-actions">
+                  <summary>更多动作 <ChevronDown size={13} /></summary>
+                  <div className="stage-more-menu">
+                    <button type="button" className="stage-panel-close" aria-label="收起更多动作" onClick={() => { if (moreActionsPanel.current) moreActionsPanel.current.open = false; }}>收起 ×</button>
+                    <strong>姿态</strong>
+                    {([{id:"sit",label:"坐下"},{id:"crouch",label:"蹲下"},{id:"sleep",label:"睡觉"}] as const).map(item => <button key={item.id} disabled={!postureCapability} title={!postureCapability ? "需要完整人形骨骼的 VRM 角色" : undefined} aria-pressed={action === item.id} onClick={() => (item.id === "sit" || item.id === "sleep") && availableInteractions().some(target=>target.kind===item.id) ? interactFurniture(item.id) : animate(item.id)}>{item.label}</button>)}
+                    <strong>场景互动</strong>
+                    {([{kind:"sleep",label:"上床睡觉"},{kind:"study",label:"坐下学习"},{kind:"sit",label:"坐到椅子"}] as const).map(item => <button key={item.kind} disabled={!postureCapability || !availableInteractions().some(target=>target.kind===item.kind)} title="也可以点击场景中的床或书桌；床铺需卧室；书桌需卧室或教室；椅子也支持公园长椅" aria-pressed={state.furniture?.kind === item.kind} onClick={() => interactFurniture(item.kind)}>{item.label}</button>)}
+                    <button disabled={!isRestAction(action)} onClick={() => animate("idle")}>站起来</button>
+                  </div>
+                </details>
                 <CharacterAbilities active={nav === "创作空间"}/>
-                <button disabled={!isRestAction(action)} onClick={() => animate("idle")}>站起来</button>
               </div>
               <div className="stage-hint">
                 <span>{state.sceneVisible && builtinScene(state.sceneUrl)?.kind === "bedroom" ? "点击床休息 · 点击书桌学习" : state.sceneVisible && builtinScene(state.sceneUrl)?.kind === "school" ? "点击书桌学习 · 滚轮缩放" : state.sceneVisible && builtinScene(state.sceneUrl)?.kind === "park" ? "点击长椅坐下 · 滚轮缩放" : "拖动旋转 · 滚轮缩放"}</span>
@@ -1694,20 +1848,21 @@ export default function App() {
                 </button>
               </div>
             </section>
-            <aside className="chat-panel">
+            <aside className={`chat-panel ${tab === "对话" ? "is-conversation" : "is-control"}`}>
               <div className="panel-tabs">
-                {["对话", "角色"].map((t) => (
+                {["对话", "直播", "角色"].map((t) => (
                   <button
                     className={tab === t ? "selected" : ""}
+                    aria-pressed={tab === t}
                     key={t}
                     onClick={() => setTab(t)}
                   >
                     {t === "对话" ? (
                       <MessageCircle size={15} />
-                    ) : (
+                    ) : t === "直播" ? <Radio size={15}/> : (
                       <Users size={15} />
                     )}{" "}
-                    {t}
+                    {t === "直播" ? "直播模式" : t}
                   </button>
                 ))}
                 <button
@@ -1732,15 +1887,17 @@ export default function App() {
                       />
                     </div>
                     <strong>
-                      {c.name} <span>{c.en}</span>
+                      {c.name}
                     </strong>
-                    <p>{c.tag}</p>
-                    <span className="companion-status">
-                      <i />
-                      <PresenceStatus />
-                    </span>
+                    <p><PresenceStatus /></p>
+                    <button className="chat-persona-link" onClick={() => { setAgentSettingsSection("persona"); setModal("角色 Agent"); }} aria-label="配置当前角色"><Settings2 size={15}/></button>
                   </div>
-                  <div className="chat-messages">
+                  <div className="chat-messages" role="log" aria-label="与角色的对话" aria-live="polite" onScroll={(event) => {
+                    const node = event.currentTarget;
+                    const near = node.scrollHeight - node.scrollTop - node.clientHeight < 90;
+                    followConversation.current = near;
+                    setAwayFromLatest(!near);
+                  }}>
                     <div className="chat-date">{c.name}的专属会话</div>
                     {historyLoading && (
                       <div className="agent-thread-notice">
@@ -1763,22 +1920,17 @@ export default function App() {
                     {messages.map((m, i) => (
                       <div className={`message ${m.role}`} key={i}>
                         {m.role === "assistant" && (
-                          <span className="message-avatar">✧</span>
+                          <span className="message-avatar"><img src={customCharacter?.thumbnail || baseCharacter.thumbnail} alt="" /></span>
                         )}
                         <div>
                           {m.role === "assistant" && (
                             <small>
                               {m.characterName || c.name}
-                              {m.mode === "llm"
-                                ? ` · ${m.model || "大语言模型"}`
-                                : m.mode === "resource-agent"
-                                  ? " · 资源控制"
-                                  : m.mode === "local-rules"
-                                    ? " · 本地规则助手"
-                                    : ""}
+                              {m.mode === "error" ? " · 回复失败" : m.mode === "local-rules" ? " · 本地回应" : ""}
                             </small>
                           )}
                           <p>{m.text}</p>
+                          {m.role === "assistant" && <SourcePanel key={`${agentId}:${m.sources?.map(s => s.id).join(":")}`} sources={m.sources} agentId={agentId} />}
                           {m.role === "assistant" && m.mode !== "error" && (
                             <button
                               type="button"
@@ -1848,23 +2000,20 @@ export default function App() {
                         </div>
                       </div>
                     ))}
-                    {busy && (
-                      <div className="thinking">
-                        <LoaderCircle size={14} />
-                        正在想一想…
-                      </div>
-                    )}
+                    {busy && <ReplyPending key={agentId} name={c.name} />}
                     <div ref={bottom} />
                   </div>
                   <div className="chat-compose">
-                    <LiveChatPanel
-                      agentId={agentId}
-                      agentName={c.name}
-                      onSettings={() => setModal("直播平台")}
-                    />
+                    <ReadingTextPanel agentId={agentId} visible={showReadingText} onToggle={() => setShowReadingText(value => !value)} />
+                    {awayFromLatest && <button className="conversation-latest" onClick={() => {
+                      followConversation.current = true;
+                      setAwayFromLatest(false);
+                      goToLatest("smooth");
+                    }}>回到最新消息 ↓</button>}
+                    <div className="conversation-memory-link"><button onClick={() => { setAgentSettingsSection("memory"); setModal("角色 Agent"); }}>记忆与资料</button><span>Enter 发送 · Shift + Enter 换行</span></div>
                     <div className="suggestions">
                       <button onClick={() => void send("给我跳一支舞吧")}>
-                        跳一支舞 ♡
+                        跳支舞
                       </button>
                       <button onClick={() => void send("今天的你心情怎么样？")}>
                         聊聊今天
@@ -1893,11 +2042,10 @@ export default function App() {
                       }}
                     />
                     <p>
-                      <span>✧</span>{" "}
                       <button
                         type="button"
                         className={`chat-model-status ${chatRoute.mode === "llm" ? "model-ready" : ""}`}
-                        onClick={() => setModal("角色 Agent")}
+                        onClick={() => { setAgentSettingsSection("persona"); setModal("角色 Agent"); }}
                         title={chatRoute.provider || "配置角色聊天模型"}
                       >
                         {!online
@@ -1915,7 +2063,12 @@ export default function App() {
                   </div>
                 </>
               ) : (
-                <div className="character-detail">
+                tab === "直播" ? <div className="live-control-view">
+                  <ReadingTextPanel agentId={agentId} visible={showReadingText} onToggle={() => setShowReadingText(value => !value)} />
+                  <LiveChatPanel expanded agentId={agentId} agentName={c.name} onSettings={() => setModal("直播平台")} />
+                  <button className="secondary live-program-link" onClick={() => navigate("书籍库")}><BookOpen size={14}/>从资料库选择书籍</button>
+                  <button className="secondary live-program-link" onClick={() => { setAgentSettingsSection("live"); setModal("角色 Agent"); }}><Settings2 size={14}/>角色直播设置<ArrowRight size={14}/></button>
+                </div> : <div className="character-detail">
                   <div className="character-orb">✧</div>
                   <h2>{c.name}</h2>
                   <p>{agent?.relationship || c.desc}</p>
@@ -1935,10 +2088,10 @@ export default function App() {
                     </p>
                     <button
                       className="primary"
-                      onClick={() => setModal("角色 Agent")}
+                      onClick={() => { setAgentSettingsSection("persona"); setModal("角色 Agent"); }}
                     >
                       <Sparkles size={14} />
-                      配置角色 Agent
+                      编辑角色设置
                     </button>
                     <span>
                       {agent?.remember === false ? "临时交流" : "独立会话记忆"}{" "}
@@ -1989,8 +2142,7 @@ export default function App() {
             onRemove={removeResource}
             onEdit={editResource}
             onReplace={(r) => {
-              upload(r.kind);
-              replacing.current = r;
+              upload(r.kind, r);
             }}
             onUpload={upload}
             onStudio={() => navigate("创作空间")}
@@ -1998,27 +2150,29 @@ export default function App() {
             onLyrics={() => upload("lyrics")}
           />
         )}
-        <div className="music-player">
+        <div className={`music-player${visibleTracks.length ? "" : " is-empty"}`} role="region" aria-label="音乐播放器">
           <div className="track-info">
             <div className={`album ${playing ? "spinning" : ""}`}>
               <AudioLines size={24} />
             </div>
-            <div>
-              <strong>{tracks[track].name}</strong>
-              <small>{currentLyric || tracks[track].artist}</small>
+            <div className="track-copy">
+              <strong title={visibleTracks.length ? tracks[track].name : undefined}>{visibleTracks.length ? tracks[track].name : "音乐播放器"}</strong>
+              <small>{visibleTracks.length ? currentLyric || tracks[track].artist : "为聊天与直播添加背景音乐"}</small>
             </div>
-            <button
+            {!!visibleTracks.length && <button
+              aria-label="收藏歌曲"
+              aria-pressed={liked}
               className={liked ? "accent" : ""}
               title="收藏歌曲"
               onClick={() => setLiked(!liked)}
             >
               <Heart size={16} fill={liked ? "currentColor" : "none"} />
-            </button>
+            </button>}
           </div>
-          <div className="playback">
+          {!!visibleTracks.length && <div className="playback">
             <div className="playback-buttons">
               <button
-                title="随机播放"
+                aria-label="随机播放" title="随机播放"
                 onClick={() => {
                   setTrack(
                     (track + 1 + Math.floor(Math.random() * 2)) % tracks.length,
@@ -2029,7 +2183,7 @@ export default function App() {
                 <Shuffle size={14} />
               </button>
               <button
-                title="上一首"
+                aria-label="上一首" title="上一首"
                 disabled={!visibleTracks.length}
                 onClick={() => {
                   setTrack((track - 1 + tracks.length) % tracks.length);
@@ -2040,7 +2194,7 @@ export default function App() {
               </button>
               <button
                 className="play-button"
-                title={playing ? "暂停" : "播放"}
+                aria-label={playing ? "暂停" : "播放"} title={playing ? "暂停" : "播放"}
                 disabled={!visibleTracks.length}
                 onClick={() => playback(!playing)}
               >
@@ -2051,7 +2205,7 @@ export default function App() {
                 )}
               </button>
               <button
-                title="下一首"
+                aria-label="下一首" title="下一首"
                 disabled={!visibleTracks.length}
                 onClick={() => {
                   setTrack((track + 1) % tracks.length);
@@ -2062,7 +2216,7 @@ export default function App() {
               </button>
               <button
                 className={loop ? "accent" : ""}
-                title="循环播放"
+                aria-label="循环播放" title="循环播放" aria-pressed={loop}
                 onClick={() => setLoop(!loop)}
               >
                 <Repeat2 size={15} />
@@ -2076,6 +2230,7 @@ export default function App() {
                 min="0"
                 max={tracks[track].duration}
                 step=".1"
+                style={{ "--range-fill": `${tracks[track].duration ? Math.min(100, progress / tracks[track].duration * 100) : 0}%` } as CSSProperties}
                 value={progress}
                 onChange={(e) => {
                   setProgress(+e.target.value);
@@ -2085,21 +2240,22 @@ export default function App() {
               />
               <span>{time(tracks[track].duration)}</span>
             </div>
-          </div>
-          <div className="player-extra">
+          </div>}
+          {!!visibleTracks.length && <div className="player-extra">
             <Volume2 size={16} />
             <input
               aria-label="音量"
               type="range"
+              style={{ "--range-fill": `${volume}%` } as CSSProperties}
               value={volume}
               onChange={(e) => set({ volume: +e.target.value })}
             />
             <span />
-            <button title="播放列表" onClick={() => navigate("音乐与舞蹈")}>
+            <button aria-label="播放列表" title="播放列表" onClick={() => navigate("音乐与舞蹈")}>
               <Music2 size={17} />
             </button>
-            <span className="quality">本地音源</span>
-          </div>
+          </div>}
+          {!visibleTracks.length && <button className="player-library-button" onClick={() => navigate("音乐与舞蹈")}><Music2 size={16} />选择音乐</button>}
           <audio
               preload="metadata"
               ref={audio}
@@ -2123,11 +2279,24 @@ export default function App() {
         className="hidden"
         ref={file}
         type="file"
+        multiple
+        disabled={importBusy}
         onChange={(e) => {
-          void imported(e.target.files?.[0]);
+          void importedFiles(Array.from(e.target.files || []));
           e.target.value = "";
         }}
       />
+      {importReport && <PanelDialog title={importBusy ? `正在导入 ${importReport.outcomes.length} / ${importReport.total}` : "文件导入结果"} busy={importBusy} onClose={() => setImportReport(null)}>
+        <div className="batch-import-status" role="status">已处理 {importReport.outcomes.length} / {importReport.total} · 成功 {importReport.outcomes.filter(o => o.ok).length} · 跳过 {importReport.outcomes.filter(o => o.skipped).length} · 失败 {importReport.outcomes.filter(o => !o.ok && !o.skipped).length}</div>
+        {importConflict && <section className="import-conflict" aria-label="重复文件处理">
+          <h3>文件已经存在</h3><p>资料库中已有同类文件“{importConflict.filename}”，请选择处理方式。</p>
+          <p className="import-conflict-note">替换会保留资源设置和 ID。书籍正文发生变化时，阅读进度会重置。</p>
+          <label><input type="checkbox" checked={applyConflictAll} onChange={e => { conflictApplyRef.current = e.target.checked; setApplyConflictAll(e.target.checked); }} />应用到本次所有重复文件</label>
+          <div className="import-conflict-actions">{([['replace', '替换已有文件'], ['skip', '跳过'], ['keep', '两个都保留']] as const).map(([choice, label]) => <button className="secondary" key={choice} onClick={() => { const resolve = conflictResolver.current; conflictResolver.current = null; resolve?.(choice); }}>{label}</button>)}</div>
+        </section>}
+        <ul className="batch-import-results">{importReport.outcomes.map((outcome, i) => <li key={i}><strong>{outcome.name}</strong><span className={outcome.skipped ? "import-skipped" : outcome.ok ? "import-ok" : "import-failed"}>{outcome.skipped ? "已跳过" : outcome.ok ? "已导入" : "未导入"}</span><p>{outcome.messages.join("；")}</p></li>)}</ul>
+        {!importBusy && <div className="product-dialog-actions"><button className="primary" data-dialog-focus onClick={() => setImportReport(null)}>完成</button></div>}
+      </PanelDialog>}
       {notice && (
         <div role="status" className="toast">
           <Check size={16} />
@@ -2140,18 +2309,18 @@ export default function App() {
           onClick={() => setModal(null)}
         >
           <section
-            className={`modal ${modal === "AI 模型与语音" || modal === "设置" || modal === "角色 Agent" || modal === "直播平台" ? "settings-modal" : ""}`}
+            className={`modal ${modal === "角色表现控制" ? "character-controls-modal" : ""} ${modal === "AI 模型与语音" || modal === "设置" || modal === "角色 Agent" || modal === "直播平台" ? "settings-modal" : ""}`}
             role="dialog"
             aria-modal={modal !== "角色表现控制"}
-            aria-label={modal}
+            aria-label={modal === "角色 Agent" ? "角色设置" : modal}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
               <div>
                 <span className="eyebrow">ASTRAVERSE STUDIO</span>
-                <h2>{modal}</h2>
+                <h2>{modal === "角色 Agent" ? "角色设置" : modal}</h2>
               </div>
-              <button aria-label="关闭" onClick={() => setModal(null)}>
+              <button aria-label="关闭" onClick={() => { setModal(null); setAgentSettingsSection("persona"); }}>
                 <X size={20} />
               </button>
             </div>
@@ -2160,6 +2329,8 @@ export default function App() {
             modal === "角色 Agent" ||
             modal === "直播平台" ? (
               <SettingsCenter
+                resources={resources}
+                agentSection={agentSettingsSection}
                 initialTab={
                   modal === "AI 模型与语音"
                     ? "providers"

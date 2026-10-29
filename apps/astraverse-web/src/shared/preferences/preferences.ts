@@ -12,6 +12,8 @@ interface Preferences {
   motionStrength: number;
   danceStrength: number;
   voice: boolean;
+  bookReadToEnd: boolean;
+  musicComments: boolean;
   focusMode: boolean;
   sceneEffects: boolean;
   emotionEffects: "auto" | "always" | "off";
@@ -29,6 +31,8 @@ export const usePreferences = create<Preferences>()(
       motionStrength: 0.65,
       danceStrength: 1,
       voice: false,
+      bookReadToEnd: true,
+      musicComments: true,
       focusMode: false,
       sceneEffects: true,
       emotionEffects: "auto",
@@ -52,6 +56,7 @@ export const usePreferences = create<Preferences>()(
         resourceLimitMB: normalizeResourceLimit((stored as Partial<Preferences> | undefined)?.resourceLimitMB),
       }),
       partialize: ({
+        musicComments,
         resourceLimitMB,
         theme,
         framing,
@@ -60,11 +65,13 @@ export const usePreferences = create<Preferences>()(
         motionStrength,
         danceStrength,
         voice,
+        bookReadToEnd,
         focusMode,
         sceneEffects,
         emotionEffects,
         motion,
       }) => ({
+        musicComments,
         resourceLimitMB,
         theme,
         framing,
@@ -73,6 +80,7 @@ export const usePreferences = create<Preferences>()(
         motionStrength,
         danceStrength,
         voice,
+        bookReadToEnd,
         focusMode,
         sceneEffects,
         emotionEffects,

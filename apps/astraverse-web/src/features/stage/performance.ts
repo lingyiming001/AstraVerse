@@ -54,7 +54,6 @@ export function beginTurn() {
   clearTimeout(finishTimer);
   usePerformance.setState({
     phase: "thinking",
-    manualUntil: 0,
     cue: null,
     started: performance.now(),
   });
@@ -73,6 +72,7 @@ export function setListening(listening: boolean) {
 }
 
 export function respond(cue: unknown, source = "local-fallback") {
+  if (performance.now() < usePerformance.getState().manualUntil) { endTurn(); return; }
   if (!cue || typeof cue !== "object") {
     endTurn();
     return;

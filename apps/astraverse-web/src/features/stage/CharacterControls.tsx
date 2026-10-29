@@ -71,30 +71,9 @@ export default function CharacterControls() {
   }
   return (
     <div className="character-controls">
-      <div className="settings-intro">
-        <div>
-          <span className="settings-eyebrow">CHARACTER PRESENCE</span>
-          <h3>让每个细微动作，都有温度。</h3>
-          <p>表情、姿态与自然律动，即刻呈现在舞台。</p>
-        </div>
-        <span className="settings-icon">
-          <Sparkles size={22} />
-        </span>
-      </div>
-      <div className="settings-alert">
-        <strong>Live2D / Cubism</strong><p>在角色库导入 ZIP（含一个 .model3.json、moc3、贴图和动作）。现有 VRM 保持 3D 渲染。Live2D 的动作和表情取决于模型制作。</p>
-        <a href="https://www.live2d.com/en/sdk/download/web/" target="_blank" rel="noreferrer">下载官方 SDK</a>
-        <label className="live2d-import">导入官方 Core<input type="file" accept=".js" onChange={event => {
-          const file = event.target.files?.[0]; if (!file) return;
-          void saveCubismCore(file).then(() => setStatus("Core 已保存，请刷新页面或在舞台重试加载")).catch(error => setStatus(error.message));
-        }} /></label>
-        <small>仅导入官方 live2dcubismcore.min.js；使用前请阅读官网协议。</small>
-      </div>
-      {s.modelUrl && (
-        <div className="settings-alert">
-          {live2d ? "Live2D 支持标准头部、身体倾斜和面部参数；手臂、舞蹈和其他表情请使用舞台中的模型动作列表，具体效果取决于模型绑定。" : "VRM 角色支持骨骼、眨眼、表情与语音口型；具体表情取决于模型预设。静态 GLB 支持整体转向与位移。"}
-        </div>
-      )}
+      <p className="character-control-description">调整会实时呈现在舞台中。部分动作取决于模型支持。</p>
+      <div className="control-section-title"><Activity size={16} /><h4>快捷动作</h4></div>
+      {live2d && <p className="character-model-note">当前为 Live2D，完整舞蹈请使用舞台中的模型动作列表。</p>}
       <div className="pose-presets">
         <button onClick={() => {
           const action = s.action === "dance" ? "idle" : "dance";
@@ -198,6 +177,7 @@ export default function CharacterControls() {
           </button>
         ))}
       </div>
+      <details className="character-advanced"><summary>精细姿态调节</summary><div>
       <div className="joint-grid">
         {joints.filter(j => !live2d || ["headYaw", "headPitch", "bodyLean"].includes(j.id)).map((j) => (
           <label className="joint-slider" key={j.id}>
@@ -229,6 +209,7 @@ export default function CharacterControls() {
         />
         <output>{s.rotation}°</output>
       </label>
+      </div></details>
       <div className="control-section-title">
         <Eye size={16} />
         <h4>自然表现</h4>
@@ -319,10 +300,22 @@ export default function CharacterControls() {
         />
         <output>{Math.round(preferences.motionStrength * 100)}%</output>
       </label>
+      <details className="character-advanced character-runtime"><summary>模型支持与 Live2D 安装</summary><div>
+        <p>{live2d ? "Live2D 支持头部、身体倾斜和面部参数。其他动作取决于模型绑定。" : "VRM 支持骨骼、眨眼与语音口型，表情取决于模型预设；静态 GLB 支持整体转向与位移。"}</p>
+        <p>在角色库导入 Live2D ZIP，包含 .model3.json、moc3、贴图和动作。</p>
+        <div className="character-runtime-actions">
+          <a href="https://www.live2d.com/en/sdk/download/web/" target="_blank" rel="noreferrer">下载官方 SDK ↗</a>
+          <label className="live2d-import">导入官方 Core<input type="file" accept=".js" onChange={event => {
+            const file = event.target.files?.[0]; if (!file) return;
+            void saveCubismCore(file).then(() => setStatus("Core 已保存，请刷新页面或在舞台重试加载")).catch(error => setStatus(error.message));
+          }} /></label>
+        </div>
+        <small>仅导入官方 live2dcubismcore.min.js；使用前请阅读官网协议。</small>
+      </div></details>
       <div className="character-sync">
         <i />
         {status}
-        <span>VRM 骨骼驱动 · 表情取决于模型预设</span>
+        <span>{live2d ? "Live2D 参数驱动" : "VRM / GLB 模型驱动"}</span>
       </div>
     </div>
   );

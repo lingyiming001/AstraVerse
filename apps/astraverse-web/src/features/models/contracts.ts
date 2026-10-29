@@ -1,4 +1,5 @@
 export const capabilities = [
+  { id: "embedding", name: "向量检索", en: "Embedding", description: "为资料库和记忆建立语义索引（OpenAI 兼容）", kind: "理解" },
   {
     id: "text",
     name: "文本对话",

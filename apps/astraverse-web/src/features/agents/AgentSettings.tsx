@@ -1,7 +1,11 @@
+import SettingsGroup from "./SettingsGroup";
+import "./agentSettings.css";
+import InspirationPanel from "./InspirationPanel";
+import AgentTeamEditor from "./AgentTeamEditor";
+import type { Resource } from "@/features/library/resources";
 import { speechVoices } from "@/features/models/speechOptions";
 import { useEffect, useId, useState } from "react";
 import {
-  BrainCircuit,
   Check,
   ChevronRight,
   LoaderCircle,
@@ -9,7 +13,6 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -21,22 +24,34 @@ import {
   type AgentProfile,
   type AgentOption,
 } from "@/features/agents/agentApi";
+import LiveProgramEditor from "@/features/live/LiveProgramEditor";
+import AgentKnowledge from "./AgentKnowledge";
 import AgentMemory from "@/features/agents/AgentMemory";
 import { readResponse } from "@/shared/api/http";
 import type { ModelSettings } from "@/features/models/contracts";
 import CharacterModels from "@/features/models/ModelSettingsPanel";
 interface Props {
+  resources?: Resource[];
+  initialSection?: string;
   activeId: string;
   options: AgentOption[];
   models: ModelSettings;
   onActivate?: (id: string) => void;
 }
+const moreSections = [
+  { id: "behavior", title: "声音与表现", hint: "音色、语速、回答长度与动作" },
+  { id: "memory", title: "记忆与资料", hint: "记住什么，以及可查阅的资料" },
+  { id: "models", title: "模型设置", hint: "默认跟随全局，需要时单独指定" },
+  { id: "tools", title: "能力与自动行为", hint: "资源、插件、动作与弹幕管理" },
+];
 const movementNames = {
   soft: "柔和倾听",
   graceful: "从容优雅",
   lively: "明朗灵动",
 };
 export default function AgentSettings({
+  resources = [],
+  initialSection = "persona",
   activeId,
   options,
   models,
@@ -45,7 +60,8 @@ export default function AgentSettings({
   const [selected, setSelected] = useState(activeId);
   const [ownModels, setOwnModels] = useState<ModelSettings | null>(null);
   const [ownModelsError, setOwnModelsError] = useState("");
-  const [section, setSection] = useState("persona");
+  const [section, setSection] = useState(initialSection);
+  useEffect(() => { setSection(initialSection); }, [initialSection]);
   const [drafts, setDrafts] = useState<Record<string, AgentProfile>>({});
   const [loading, setLoading] = useState(false),
     [saving, setSaving] = useState(false),
@@ -56,6 +72,7 @@ export default function AgentSettings({
   const profiles = useAgents((s) => s.profiles),
     routes = useAgents((s) => s.routes);
   useEffect(() => {
+    if (section !== "models") return;
     let alive = true;
     setOwnModels(null);
     setOwnModelsError("");
@@ -81,7 +98,7 @@ export default function AgentSettings({
       alive = false;
       window.removeEventListener("astraverse:model-settings-saved", refresh);
     };
-  }, [selected]);
+  }, [selected, section]);
   const ownAvailable = (ownModels?.providers || [])
     .filter((p) => p.enabled)
     .flatMap((p) =>
@@ -143,7 +160,7 @@ export default function AgentSettings({
     }));
     setNotice("");
   }
-  async function save() {
+  async function save(chat = false) {
     if (!draft || saving) return;
     setSaving(true);
     setError("");
@@ -151,7 +168,8 @@ export default function AgentSettings({
     try {
       const saved = await saveAgent(draft);
       setDrafts((p) => ({ ...p, [saved.profile.id]: saved.profile }));
-      setNotice("设定已保存，下一次交流就会使用这份角色设定。");
+      setNotice("角色设置已保存。");
+      if (chat) onActivate?.(saved.profile.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败");
     } finally {
@@ -187,6 +205,10 @@ export default function AgentSettings({
   }
   function field(
     key:
+      | "strengths"
+      | "preferences"
+      | "habits"
+      | "live_style"
       | "name"
       | "identity"
       | "background"
@@ -226,35 +248,28 @@ export default function AgentSettings({
   }
   return (
     <div className="agent-settings">
-      <div className="settings-intro">
-        <div>
-          <span className="settings-eyebrow">A MIND OF THEIR OWN</span>
-          <h3>让每一位伙伴，都有自己的性格。</h3>
-          <p>独立人设、独立会话，用相处中的细节回应你。</p>
-        </div>
-        <span className="settings-icon">
-          <BrainCircuit size={24} />
-        </span>
-      </div>
       <div className="agent-picker">
         <label htmlFor={`${prefix}-character`}>
           正在配置的角色
           <select
             id={`${prefix}-character`}
             value={selected}
+            disabled={saving}
             onChange={(event) => setSelected(event.target.value)}
           >
             {options.map((item) => (
               <option value={item.id} key={item.id}>
                 {profiles[item.id]?.name || item.name}
                 {item.id === activeId ? " · 当前舞台" : ""}
+                {drafts[item.id] && JSON.stringify(drafts[item.id]) !== JSON.stringify(profiles[item.id]) ? " · 未保存" : ""}
               </option>
             ))}
           </select>
         </label>
         <span>
           <ShieldCheck size={13} />
-          绑定角色，切换后各自保留
+          独立保存
+          {draft && !loading && <span className={`agent-save-state ${dirty ? "is-dirty" : ""}`} role="status">{dirty ? "有未保存的修改" : "已保存"}</span>}
         </span>
       </div>
       {error && (
@@ -278,301 +293,32 @@ export default function AgentSettings({
         </div>
       ) : (
         <>
-          <div className="agent-profile-card">
-            <div className="agent-profile-avatar">
-              {option?.thumbnail ? (
-                <img src={option.thumbnail} alt="" />
-              ) : (
-                <Sparkles size={26} />
-              )}
-            </div>
-            <div>
-              <small>CHARACTER AGENT</small>
-              <h4>{draft.name || "我的伙伴"}</h4>
-              <p>{draft.identity}</p>
-              <span>
-                {movementNames[draft.behavior.movement]}
-                <i />
-                {draft.remember ? "会话记忆已开启" : "临时交流"}
-              </span>
-            </div>
-            <span className={`agent-save-state ${dirty ? "is-dirty" : ""}`}>
-              {dirty ? "未保存" : "已保存"}
-            </span>
-          </div>
-          <div className="agent-sections">
+          <nav className="agent-sections" aria-label="角色设置分类">
             {[
-              { id: "persona", label: "角色设定" },
-              { id: "behavior", label: "表达与表现" },
-              { id: "memory", label: "记忆与能力" },
-              { id: "models", label: "角色模型" },
+              { id: "persona", label: "基本设置" },
+              { id: "live", label: "直播设置" },
+              { id: "more", label: "更多设置" },
             ].map((item) => (
               <button
                 key={item.id}
-                className={section === item.id ? "active" : ""}
+                disabled={saving}
+                aria-current={(section === "persona" || section === "live" ? section : "more") === item.id ? "page" : undefined}
+                className={(section === "persona" || section === "live" ? section : "more") === item.id ? "active" : ""}
                 onClick={() => setSection(item.id)}
               >
                 {item.label}
               </button>
             ))}
-          </div>
-          {section === "models" ? (
-            <div className="agent-private-models">
-              <div className="settings-feedback">
-                这里新增的模型与密钥只属于「{draft.name}
-                」，不会写入平台模型库。配置后到「记忆与能力」选择使用角色专属模型；未切换来源前仍使用原模型。
-              </div>
-                <CharacterModels
-                  key={selected}
-                  scopeAgentId={selected}
-                  initialTab="providers"
-                />
-            </div>
-          ) : section === "persona" ? (
+          </nav>
+          {moreSections.some(item => item.id === section) && <div className="agent-settings-breadcrumb"><button disabled={saving} onClick={() => setSection("more")}>‹ 更多设置</button><span>/</span><strong>{moreSections.find(item => item.id === section)?.title}</strong></div>}
+          <fieldset className="agent-editor-fields" aria-label="角色设置内容" disabled={saving}>
+          {section === "live" ? (
+            <LiveProgramEditor key={selected} agentId={selected} dirty={dirty} value={draft.live_program} onChange={(live_program) => update({ live_program })} liveStyle={draft.live_style} onLiveStyleChange={live_style => update({ live_style })} />
+          ) : section === "models" ? (
             <div className="agent-form">
-              <div className="agent-field-pair">
-                {field("name", "角色名字", "对话和舞台中使用的名字", 40)}
-                {field("identity", "角色身份", "用一句话描述这位伙伴", 120)}
-              </div>
-              {field(
-                "background",
-                "角色背景",
-                "世界观、经历与关注的事物；保持设定前后一致",
-                1800,
-                4,
-              )}
-              {field(
-                "personality",
-                "性格特点",
-                "例如：温柔慢热、善于倾听、有自己的观点",
-                500,
-                3,
-              )}
-              {field(
-                "speaking_style",
-                "说话方式",
-                "语气、措辞习惯，以及希望避免的套话",
-                800,
-                3,
-              )}
-              {field(
-                "relationship",
-                "与你的相处方式",
-                "像朋友、同行者或创作搭档，如何倾听与回应",
-                600,
-                3,
-              )}
-              {field("greeting", "初次问候", "这位伙伴独有的开场白", 600, 3)}
-              {field(
-                "boundaries",
-                "角色边界",
-                "希望遵循的相处约定和行为边界",
-                600,
-                3,
-              )}
-            </div>
-          ) : section === "behavior" ? (
-            <div className="agent-form">
-              <div className="agent-field-pair">
-                <label className="field">
-                  回答长度
-                  <select
-                    value={draft.behavior.reply_length}
-                    onChange={(e) =>
-                      update({
-                        behavior: {
-                          ...draft.behavior,
-                          reply_length: e.target
-                            .value as AgentProfile["behavior"]["reply_length"],
-                        },
-                      })
-                    }
-                  >
-                    <option value="brief">简短克制</option>
-                    <option value="balanced">自然适中</option>
-                    <option value="detailed">充分展开</option>
-                  </select>
-                </label>
-                <label className="field">
-                  交流主动性
-                  <select
-                    value={draft.behavior.initiative}
-                    onChange={(e) =>
-                      update({
-                        behavior: {
-                          ...draft.behavior,
-                          initiative: e.target
-                            .value as AgentProfile["behavior"]["initiative"],
-                        },
-                      })
-                    }
-                  >
-                    <option value="quiet">安静倾听</option>
-                    <option value="balanced">自然互动</option>
-                    <option value="curious">好奇探索</option>
-                  </select>
-                </label>
-              </div>
-              <label className="field">
-                动作气质
-                <select
-                  value={draft.behavior.movement}
-                  onChange={(e) =>
-                    update({
-                      behavior: {
-                        ...draft.behavior,
-                        movement: e.target
-                          .value as AgentProfile["behavior"]["movement"],
-                      },
-                    })
-                  }
-                >
-                  {Object.entries(movementNames).map(([value, label]) => (
-                    <option value={value} key={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <small>影响手势节奏、音乐律动和身体的舒展方式</small>
-              </label>
-              {(
-                [
-                  ["expressiveness", "表情丰富度"],
-                  ["energy", "动作活跃度"],
-                ] as const
-              ).map(([key, label]) => (
-                <label className="agent-range" key={key}>
-                  <span>
-                    {label}
-                    <small>
-                      {key === "expressiveness"
-                        ? "克制含蓄 → 丰富鲜明"
-                        : "安静细微 → 轻快灵动"}
-                    </small>
-                  </span>
-                  <input
-                    aria-label={label}
-                    type="range"
-                    min="0"
-                    max="1"
-                    step=".01"
-                    value={draft.behavior[key]}
-                    onChange={(e) =>
-                      update({
-                        behavior: { ...draft.behavior, [key]: +e.target.value },
-                      })
-                    }
-                  />
-                  <output>{Math.round(draft.behavior[key] * 100)}%</output>
-                </label>
-              ))}
-              <div className="agent-subheading">
-                <h4>专属声音</h4>
-                <p>开启角色语音后使用；音色需语音供应商支持。</p>
-              </div>
-              <label className="field">
-                合成音色
-                <select
-                  value={draft.voice.voice}
-                  onChange={(e) =>
-                    update({
-                      voice: {
-                        ...draft.voice,
-                        voice: e.target.value as AgentProfile["voice"]["voice"],
-                      },
-                    })
-                  }
-                >
-                  {Array.from(new Set([draft.voice.voice, ...speechVoices])).map(
-                    (name) => (
-                      <option key={name}>{name}</option>
-                    ),
-                  )}
-                </select>
-              </label>
-              {(
-                [
-                  ["rate", "说话速度"],
-                  ["pitch", "系统语音音调"],
-                ] as const
-              ).map(([key, label]) => (
-                <label className="agent-range" key={key}>
-                  <span>{label}</span>
-                  <input
-                    aria-label={label}
-                    type="range"
-                    min=".75"
-                    max="1.25"
-                    step=".01"
-                    value={draft.voice[key]}
-                    onChange={(e) =>
-                      update({
-                        voice: { ...draft.voice, [key]: +e.target.value },
-                      })
-                    }
-                  />
-                  <output>{draft.voice[key].toFixed(2)}</output>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <div className="agent-form">
-              <div className="agent-toggle">
-                <span>
-                  <strong>保留独立会话</strong>
-                  <small>
-                    本机保留最近100条记录；关闭后新对话不写入历史，旧记录可单独清空。
-                  </small>
-                </span>
-                <input
-                  aria-label="保留独立会话"
-                  type="checkbox"
-                  checked={draft.remember}
-                  onChange={(e) => update({ remember: e.target.checked })}
-                />
-              </div>
-              <label className="agent-range">
-                <span>
-                  上下文条数
-                  <small>从此角色的历史中取用，影响每次模型的输入长度</small>
-                </span>
-                <input
-                  aria-label="上下文条数"
-                  type="range"
-                  min="4"
-                  max="20"
-                  step="1"
-                  value={draft.context_messages}
-                  onChange={(e) =>
-                    update({ context_messages: +e.target.value })
-                  }
-                />
-                <output>{draft.context_messages}</output>
-              </label>
-              <label className="agent-toggle">
-                <span>
-                  <strong>自动整理长期记忆</strong>
-                  <small>
-                    保存后生效，按新对话生成摘要；使用当前角色的模型。
-                  </small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={draft.auto_summary}
-                  onChange={(e) => update({ auto_summary: e.target.checked })}
-                />
-              </label>
-              <AgentMemory key={selected} agentId={selected} />
-              {field(
-                "memory_notes",
-                "专属记忆",
-                "手动保存希望角色记住的偏好和约定；随此角色的对话发送给所选模型。",
-                4000,
-                6,
-              )}
               <section className="agent-model-source">
                 <label className="field">
-                  聊天模型来源
+                  聊天使用的模型
                   <select
                     value={
                       draft.model
@@ -597,10 +343,10 @@ export default function AgentSettings({
                     }}
                   >
                     <option value="platform">
-                      平台共享 · 跟随平台文本路由
+                      跟随全局配置（推荐）
                     </option>
                     <option value="character">
-                      角色专属 · 跟随本角色文本路由
+                      使用此角色的独立配置
                     </option>
                     {draft.model &&
                       !(
@@ -655,49 +401,250 @@ export default function AgentSettings({
                         ? "平台指定模型"
                         : "平台默认路由"}{" "}
                     · {routes[selected]?.model || "尚未配置"}
-                    。切换来源需保存角色设定。
+                    。切换来源需保存角色设定。角色设定、已保存的记忆与说话节奏会继续沿用。
                   </small>
                 </label>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setSection("models")}
-                >
-                  添加 / 管理此角色的模型
-                </button>
+
                 {ownModelsError && (
                   <p className="settings-feedback error">{ownModelsError}</p>
                 )}
                 <p className="memory-explainer">
-                  平台模型由设置中的「平台模型」统一管理。角色模型有自己的供应商、密钥和能力路由；专属文本模型不可用时明确报错。角色专属语音未配置时可沿用平台语音路由。
+                  通常跟随全局配置即可。需要单独的供应商或密钥时，再展开下方独立模型设置。
                 </p>
               </section>
+              <SettingsGroup key={`models-${selected}`} title="配置此角色的独立模型" hint="进阶选项：供应商、密钥与能力路由">
+                <p className="memory-explainer">模型和密钥在此单独保存。添加后在上方选择独立配置，再保存角色设置。</p>
+                <div className="agent-private-models"><CharacterModels key={selected} scopeAgentId={selected} initialTab="providers" /></div>
+              </SettingsGroup>
+            </div>
+          ) : section === "persona" ? (
+            <div className="agent-form">
+              <p className="agent-section-guide">常用设置只需看这四项，保留当前内容也可以直接开始聊天。</p>
+              <div className="agent-field-pair">
+                {field("name", "名字", "在舞台和对话中使用", 40)}
+                {field("identity", "一句话介绍", "例如：温柔幽默的杂谈主播", 120)}
+              </div>
+              {field("personality", "性格", "例如：热情、有分寸，会认真听人说话，也有自己的主见", 500, 3)}
+              {field("speaking_style", "说话方式", "例如：自然口语，简短具体，少套话，偶尔开个轻松的玩笑", 800, 3)}
+              <div className="agent-defaults-summary">
+                <button type="button" onClick={() => setSection("models")}><span>聊天模型<strong>{routes[selected]?.model || "尚未配置"}</strong></span><ChevronRight size={14} /></button>
+                <button type="button" onClick={() => setSection("behavior")}><span>声音<strong>{draft.voice.voice} · {draft.voice.rate.toFixed(2)}倍速</strong></span><ChevronRight size={14} /></button>
+                <button type="button" onClick={() => setSection("memory")}><span>聊天记忆<strong>{draft.remember ? "已开启" : "已关闭"}</strong></span><ChevronRight size={14} /></button>
+              </div>
+              <SettingsGroup key={`persona-${selected}`} title="更多人设细节" hint="选填：背景、喜好、问候与相处约定">
+                {field("greeting", "初次问候", "第一次打开聊天时显示的开场白", 600, 2)}
+                {field("background", "角色背景", "世界观、经历与关注的事物", 1800, 4)}
+                {field("relationship", "相处方式", "例如：有分寸的朋友、创作搭档", 600, 2)}
+                {field("strengths", "擅长的话题", "描述擅长讨论的领域；实际工具由能力设置决定", 1000, 2)}
+                {field("preferences", "喜好与主见", "喜欢、不喜欢，以及坚持的观点", 800, 2)}
+                {field("habits", "表达小习惯", "可选的口语习惯，不必重复填写说话方式", 800, 2)}
+                {field("boundaries", "相处约定", "希望遵循的行为边界", 600, 2)}
+              </SettingsGroup>
+            </div>
+          ) : section === "behavior" ? (
+            <div className="agent-form">
+
+
+              <div className="agent-field-pair">
+                <label className="field">
+                  回答长度
+                  <select
+                    value={draft.behavior.reply_length}
+                    onChange={(e) =>
+                      update({
+                        behavior: {
+                          ...draft.behavior,
+                          reply_length: e.target
+                            .value as AgentProfile["behavior"]["reply_length"],
+                        },
+                      })
+                    }
+                  >
+                    <option value="brief">简短克制</option>
+                    <option value="balanced">自然适中</option>
+                    <option value="detailed">充分展开</option>
+                  </select>
+                </label>
+                <label className="field">
+                  交流主动性
+                  <select
+                    value={draft.behavior.initiative}
+                    onChange={(e) =>
+                      update({
+                        behavior: {
+                          ...draft.behavior,
+                          initiative: e.target
+                            .value as AgentProfile["behavior"]["initiative"],
+                        },
+                      })
+                    }
+                  >
+                    <option value="quiet">安静倾听</option>
+                    <option value="balanced">自然互动</option>
+                    <option value="curious">好奇探索</option>
+                  </select>
+                </label>
+              </div>
+              <div className="agent-subheading">
+                <h4>专属声音</h4>
+                <p>开启角色语音后使用；音色需语音供应商支持。</p>
+              </div>
+              <label className="field">
+                合成音色
+                <select
+                  value={draft.voice.voice}
+                  onChange={(e) =>
+                    update({
+                      voice: {
+                        ...draft.voice,
+                        voice: e.target.value as AgentProfile["voice"]["voice"],
+                      },
+                    })
+                  }
+                >
+                  {Array.from(new Set([draft.voice.voice, ...speechVoices])).map(
+                    (name) => (
+                      <option key={name}>{name}</option>
+                    ),
+                  )}
+                </select>
+              </label>
+              {(
+                [
+                  ["rate", "说话速度"],
+                  ["pitch", "系统语音音调"],
+                ] as const
+              ).map(([key, label]) => (
+                <label className="agent-range" key={key}>
+                  <span>{label}</span>
+                  <input
+                    aria-label={label}
+                    type="range"
+                    min=".75"
+                    max="1.25"
+                    step=".01"
+                    value={draft.voice[key]}
+                    onChange={(e) =>
+                      update({
+                        voice: { ...draft.voice, [key]: +e.target.value },
+                      })
+                    }
+                  />
+                  <output>{draft.voice[key].toFixed(2)}</output>
+                </label>
+              ))}
+            <SettingsGroup title="表情与动作细节" hint="可选：动作气质、表情丰富度与活跃度">              <label className="field">
+                动作气质
+                <select
+                  value={draft.behavior.movement}
+                  onChange={(e) =>
+                    update({
+                      behavior: {
+                        ...draft.behavior,
+                        movement: e.target
+                          .value as AgentProfile["behavior"]["movement"],
+                      },
+                    })
+                  }
+                >
+                  {Object.entries(movementNames).map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <small>影响手势节奏、音乐律动和身体的舒展方式</small>
+              </label>
+              {(
+                [
+                  ["expressiveness", "表情丰富度"],
+                  ["energy", "动作活跃度"],
+                ] as const
+              ).map(([key, label]) => (
+                <label className="agent-range" key={key}>
+                  <span>
+                    {label}
+                    <small>
+                      {key === "expressiveness"
+                        ? "克制含蓄 → 丰富鲜明"
+                        : "安静细微 → 轻快灵动"}
+                    </small>
+                  </span>
+                  <input
+                    aria-label={label}
+                    type="range"
+                    min="0"
+                    max="1"
+                    step=".01"
+                    value={draft.behavior[key]}
+                    onChange={(e) =>
+                      update({
+                        behavior: { ...draft.behavior, [key]: +e.target.value },
+                      })
+                    }
+                  />
+                  <output>{Math.round(draft.behavior[key] * 100)}%</output>
+                </label>
+              ))}
+</SettingsGroup></div>
+
+          ) : section === "memory" ? (
+            <div className="agent-form">
               <div className="agent-toggle">
                 <span>
-                  <strong>允许操作资源库</strong>
-                  <small>按真实目录选择音乐、场景与角色</small>
+                  <strong>保留独立会话</strong>
+                  <small>
+                    本机保留最近100条记录；关闭后新对话不写入历史，旧记录可单独清空。
+                  </small>
                 </span>
                 <input
-                  aria-label="允许操作资源库"
+                  aria-label="保留独立会话"
                   type="checkbox"
-                  checked={draft.allow_resources}
-                  onChange={(e) =>
-                    update({ allow_resources: e.target.checked })
-                  }
+                  checked={draft.remember}
+                  onChange={(e) => update({ remember: e.target.checked })}
                 />
               </div>
+<SettingsGroup title="历史引用条数" hint="保持当前值即可">              <label className="agent-range">
+                <span>
+                  上下文条数
+                  <small>从此角色的历史中取用，影响每次模型的输入长度</small>
+                </span>
+                <input
+                  aria-label="上下文条数"
+                  type="range"
+                  min="4"
+                  max="20"
+                  step="1"
+                  value={draft.context_messages}
+                  onChange={(e) =>
+                    update({ context_messages: +e.target.value })
+                  }
+                />
+                <output>{draft.context_messages}</output>
+              </label></SettingsGroup>
               <label className="agent-toggle">
-                <div>
-                  <strong>允许使用已启用的插件</strong>
-                  <p>通过明确聊天指令调用；插件的系统权限在插件中心管理。</p>
-                </div>
+                <span>
+                  <strong>自动整理长期记忆</strong>
+                  <small>
+                    保存后生效，按新对话生成摘要；使用当前角色的模型。
+                  </small>
+                </span>
                 <input
                   type="checkbox"
-                  aria-label="允许使用插件"
-                  checked={draft.allow_plugins}
-                  onChange={(e) => update({ allow_plugins: e.target.checked })}
+                  checked={draft.auto_summary}
+                  onChange={(e) => update({ auto_summary: e.target.checked })}
                 />
               </label>
+              <SettingsGroup key={`knowledge-${selected}`} title="补充角色资料" hint={`${draft.knowledge.length}份资料，可分别决定是否用于直播`}> <AgentKnowledge resources={resources} key={`knowledge-${selected}`} entries={draft.knowledge} onChange={(knowledge) => update({ knowledge })} /> </SettingsGroup>
+              <SettingsGroup key={`archive-${selected}`} title="查看长期记忆与历史" hint="已整理的内容和原始对话"><AgentMemory key={selected} agentId={selected} /></SettingsGroup>
+              {field(
+                "memory_notes",
+                "专属记忆",
+                "手动保存希望角色记住的偏好和约定；随此角色的对话发送给所选模型。",
+                4000,
+                6,
+              )}
+
               <div className="agent-memory-actions">
                 <div>
                   <strong>会话管理</strong>
@@ -742,7 +689,47 @@ export default function AgentSettings({
                 </div>
               )}
             </div>
+          ) : section === "tools" ? (
+            <div className="agent-form">
+              <div className="agent-toggle">
+                <span>
+                  <strong>允许操作资源库</strong>
+                  <small>按真实目录选择音乐、场景与角色</small>
+                </span>
+                <input
+                  aria-label="允许操作资源库"
+                  type="checkbox"
+                  checked={draft.allow_resources}
+                  onChange={(e) =>
+                    update({ allow_resources: e.target.checked })
+                  }
+                />
+              </div>
+              <label className="agent-toggle">
+                <div>
+                  <strong>允许使用已启用的插件</strong>
+                  <p>通过明确聊天指令调用；插件的系统权限在插件中心管理。</p>
+                </div>
+                <input
+                  type="checkbox"
+                  aria-label="允许使用插件"
+                  checked={draft.allow_plugins}
+                  onChange={(e) => update({ allow_plugins: e.target.checked })}
+                />
+              </label>
+
+              <SettingsGroup key={`team-${selected}`} title="自动动作、选歌与弹幕管理" hint="可选功能，展开后独立开启"><AgentTeamEditor value={draft.team} onChange={(team) => update({ team })} /></SettingsGroup>
+              <SettingsGroup key={`inspiration-${selected}`} title="自动积累灵感" hint={draft.inspiration.enabled ? "已开启，可查看整理结果" : "未开启，需要时再配置"}><InspirationPanel key={selected} agentId={selected} value={draft.inspiration} dirty={dirty} onChange={(inspiration) => update({ inspiration })} /></SettingsGroup>
+            </div>
+
+          ) : (
+            <div className="agent-more-settings">
+              <p className="agent-section-guide">平时保持默认即可。需要调整某一项时，再进入对应设置。</p>
+              {moreSections.map(item => <button type="button" className="agent-more-card" key={item.id} onClick={() => setSection(item.id)}><span><strong>{item.title}</strong><small>{item.hint}</small></span><ChevronRight size={16} /></button>)}
+            </div>
           )}
+          </fieldset>
+          {(!draft.name.trim() || !draft.greeting.trim()) && <p className="settings-feedback error" role="status">名字和初次问候不能为空。初次问候在「基本设置 → 更多人设细节」中。</p>}
           <div className="agent-editor-footer">
             <button
               className="text-button"
@@ -755,10 +742,10 @@ export default function AgentSettings({
             <div>
               <button
                 className="secondary"
-                disabled={dirty || saving || !onActivate}
-                onClick={() => onActivate?.(selected)}
+                disabled={saving || !onActivate || !draft.name.trim() || !draft.greeting.trim()}
+                onClick={() => dirty ? void save(true) : onActivate?.(selected)}
               >
-                <MessageCircle size={13} />和 TA 聊聊
+                <MessageCircle size={13} />{dirty ? "保存并试聊" : "去聊天"}
                 <ChevronRight size={12} />
               </button>
               <button
@@ -776,7 +763,7 @@ export default function AgentSettings({
                 ) : (
                   <Save size={13} />
                 )}
-                保存设定
+                保存设置
               </button>
             </div>
           </div>

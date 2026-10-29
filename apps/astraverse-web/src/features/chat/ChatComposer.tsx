@@ -30,7 +30,7 @@ export default function ChatComposer({
     const node = input.current;
     if (node) {
       node.style.height = "auto";
-      node.style.height = `${Math.min(164, Math.max(72, node.scrollHeight))}px`;
+      node.style.height = `${Math.min(164, Math.max(44, node.scrollHeight))}px`;
     }
   }, [value]);
   const playing = speech.phase === "speaking",
@@ -50,11 +50,11 @@ export default function ChatComposer({
         id="character-chat-input"
         ref={input}
         className="composer-input"
-        rows={2}
+        rows={1}
         maxLength={4000}
         aria-invalid={!!problem}
         aria-describedby="composer-policy"
-        placeholder={`把想说的话，慢慢告诉${name}…`}
+        placeholder={`和${name}聊聊…`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onCompositionStart={() => {
@@ -86,7 +86,7 @@ export default function ChatComposer({
           onClick={onVoiceToggle}
         >
           {voice ? <Volume2 size={15} /> : <VolumeX size={15} />}
-          <span>{voice ? "语音回复已开启" : "语音回复已关闭"}</span>
+          <span>{voice ? "语音开启" : "语音关闭"}</span>
           <i aria-hidden="true" />
         </button>
         <div className="composer-actions">

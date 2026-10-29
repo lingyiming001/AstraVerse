@@ -1,0 +1,15 @@
+.book-reading-controls { display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-block: 12px; background: var(--surface, transparent); text-align: left; }
+.book-reading-title { display: flex; align-items: center; gap: 8px; }
+.book-reading-title > span { margin-left: auto; font-size: 11px; opacity: .65; }
+.book-reading-controls label { display: grid; gap: 6px; font-size: 12px; }
+.book-reading-controls select { width: 100%; min-width: 0; padding: 9px; color: inherit; background: var(--bg, transparent); border: 1px solid var(--border); border-radius: 8px; }
+.book-reading-position { display: grid; gap: 7px; }
+.book-reading-position > span, .book-reading-position small { font-size: 12px; opacity: .7; }
+.book-reading-position progress { width: 100%; height: 6px; accent-color: var(--accent, #a78bfa); }
+.book-reading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.book-reading-actions button { display: inline-flex; gap: 6px; align-items: center; }
+.book-reading-controls > p { font-size: 11px; line-height: 1.7; opacity: .7; margin: 0; }
+.book-reading-excerpt { font-size: 12px; }
+.book-reading-excerpt pre { max-height: 240px; overflow: auto; white-space: pre-wrap; font: inherit; line-height: 1.9; }
+.book-reading-controls .book-reading-mode { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 12px; margin-top: 12px; }
+.book-reading-controls .book-reading-mode input { width: 15px; height: 15px; accent-color: var(--accent); }

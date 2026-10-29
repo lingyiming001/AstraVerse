@@ -40,6 +40,7 @@ export const pageRoutes: Record<string, string> = {
   音乐与舞蹈: "/music",
   资源库: "/library",
   书籍库: "/books",
+  视频库: "/videos",
 };
 export function pageFromHash() {
   const path = location.hash.slice(1);

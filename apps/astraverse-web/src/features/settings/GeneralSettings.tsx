@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PlaybackSettings from './PlaybackSettings';
 import { DEFAULT_RESOURCE_LIMIT_MB, MAX_RESOURCE_LIMIT_MB, normalizeResourceLimit, validResourceLimit } from "@/shared/preferences/resourceLimits";
 import { AudioLines, Check, Focus, Moon, Sun, Waves } from "lucide-react";
 import { themes, themeVariables } from "@/shared/preferences/themes";
@@ -10,13 +11,8 @@ export default function GeneralSettings() {
   const validLimit = resourceLimit.trim() !== "" && validResourceLimit(Number(resourceLimit));
   return (
     <div className="general-settings">
-      <div className="settings-intro">
-        <div>
-          <span className="settings-eyebrow">MAKE YOURSELF AT HOME</span>
-          <h3>适合你的，才是最好的状态。</h3>
-          <p>调整空间的样子，也调整与伙伴相处的节奏。</p>
-        </div>
-      </div>
+      <PlaybackSettings />
+      <section className="preference-card"><label className="agent-toggle"><span><strong>听歌时偶尔聊感想</strong><small>按角色性格随机分享简短联想；可能调用聊天与语音模型。不会打断读书或正在说的话。</small></span><input type="checkbox" checked={p.musicComments} onChange={e => p.set({musicComments:e.target.checked})}/></label></section>
       <section className="preference-card">
         <div className="preference-heading">
           <Sun size={18} />

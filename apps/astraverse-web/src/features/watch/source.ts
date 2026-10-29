@@ -1,4 +1,4 @@
-export type WatchSource = { kind: "file" | "direct" | "bilibili" | "web"; url: string; title: string; original?: string };
+export type WatchSource = { kind: "file" | "direct" | "bilibili" | "web"; url: string; title: string; original?: string; bvid?: string; part?: number };
 export function parseVideoUrl(raw: string): WatchSource {
   let url: URL;
   try { url = new URL(raw.trim()); } catch { throw new Error("请输入完整的 http 或 https 视频链接"); }
@@ -14,7 +14,7 @@ export function parseVideoUrl(raw: string): WatchSource {
     const p=Number(url.searchParams.get("p") || 1);
     embed.searchParams.set("p",String(Number.isInteger(p)&&p>0&&p<=10000?p:1));
     embed.searchParams.set("autoplay","0");
-    return {kind:"bilibili",url:embed.href,title:`B站视频 ${bvid || `av${aid}`}`,original:url.href};
+    return {kind:"bilibili",url:embed.href,title:`B站视频 ${bvid || `av${aid}`}`,original:url.href,bvid:bvid||undefined,part:Number(embed.searchParams.get('p'))};
   }
   return {kind:/\.(mp4|webm|ogv|ogg|mov|m4v)$/i.test(url.pathname)?"direct":"web",url:url.href,title:url.hostname,original:url.href};
 }

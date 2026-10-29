@@ -67,7 +67,8 @@ def test_fallback_and_main_chat_use_saved_route(monkeypatch):
     assert response.status_code==200
     assert response.json()['mode']=='llm'
     assert response.json()['reply']=='来自备用模型的真实回复'
-    assert response.json()['expression']=='happy'
+    # With an AI route, expression follows the model's structured decision.
+    assert response.json()['expression'] is None
     assert len(seen)==2
 
 

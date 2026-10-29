@@ -1,3 +1,4 @@
+import type { Resource } from "@/features/library/resources";
 import ModelSettingsPanel from "@/features/models/ModelSettingsPanel";
 import type { AgentOption } from "@/features/agents/agentApi";
 import { Activity, Radio, Sparkles, Server, GitBranch, ShieldCheck, Settings2, Code2, BookOpen } from "lucide-react";
@@ -9,7 +10,7 @@ import PluginSettings from "@/features/plugins/PluginSettings";
 import LiveSettings from "@/features/live/LiveSettings";
 import HelpCenter from "@/features/settings/HelpCenter";
 const sections = [
-  { id: "agents", name: "角色 Agent", icon: Sparkles, group: "智能与模型" },
+  { id: "agents", name: "角色设置", icon: Sparkles, group: "智能与模型" },
   { id: "general", name: "外观与体验", icon: Settings2, group: "偏好设置" },
   { id: "providers", name: "平台模型", icon: Server, group: "智能与模型" },
   { id: "routing", name: "能力路由", icon: GitBranch, group: "智能与模型" },
@@ -27,17 +28,19 @@ const sections = [
 ];
 
 interface Props {
+  resources?: Resource[];
   initialTab?: string;
+  agentSection?: string;
   agentId?: string;
   agentOptions?: AgentOption[];
   onAgentActivate?: (id: string) => void;
 }
 
 /** Compose feature settings here; feature modules never import the app shell. */
-export default function SettingsCenter({ initialTab = "general", agentId = "character-0", agentOptions = [], onAgentActivate }: Props) {
+export default function SettingsCenter({ agentSection = "persona", resources = [], initialTab = "general", agentId = "character-0", agentOptions = [], onAgentActivate }: Props) {
   return <ModelSettingsPanel initialTab={initialTab} tabs={sections} renderSection={(tab, models) => {
     switch (tab) {
-      case "agents": return <AgentSettings activeId={agentId} options={agentOptions} models={models} onActivate={onAgentActivate} />;
+      case "agents": return <AgentSettings initialSection={agentSection} resources={resources} activeId={agentId} options={agentOptions} models={models} onActivate={onAgentActivate} />;
       case "general": return <GeneralSettings />;
       case "character": return <CharacterControls />;
       case "live": return <LiveSettings />;

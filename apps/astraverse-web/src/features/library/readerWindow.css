@@ -1,0 +1,6 @@
+.reader-window { position: fixed; inset: 0; overflow: auto; padding: 16px; box-sizing: border-box; background: #f4f6f8; color: #273342; }
+.reader-window > header { position: static; height: auto; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 8px 4px 16px; }
+.reader-window > header span { font-size: 12px; color: #657181; }
+.reader-window .book-reader { max-width: none; width: 100%; }
+.reader-window .book-reader iframe { display: block; width: 100%; height: max(500px, 75dvh); border: 0; border-radius: 10px; }
+.reader-window .book-reading-controls { background: white; }

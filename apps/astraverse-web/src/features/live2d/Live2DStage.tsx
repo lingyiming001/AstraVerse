@@ -10,6 +10,7 @@ import { usePreferences, useReducedMotion } from "@/shared/preferences/preferenc
 import { usePerformance } from "@/features/stage/performance";
 import { speechMotion } from "@/features/chat/speech";
 import { musicMotion } from "@/features/music/musicMotion";
+import { interactionMotion } from "./interactionMotion";
 
 type Core = {
   getParameterIndex(id: string): number;
@@ -53,6 +54,7 @@ export default function Live2DStage({ url, active }: { url: string; active: bool
     let model: Live2DModel | undefined;
     let observer: ResizeObserver | undefined;
     let disposePackage: (() => void) | undefined;
+    let disposePointer: (() => void) | undefined;
     const modelKey = crypto.randomUUID();
     useLive2DControl.setState({ capabilities: null });
     setAIStatus("正在识别模型能力");
@@ -199,13 +201,45 @@ export default function Live2DStage({ url, active }: { url: string; active: bool
       };
       let time = 0, beat = 0, lastAction = "", lastExpression = "", lastDanceMotion = -20;
       const pointer = { x: 0, y: 0 };
+      const eventSurface = target.parentElement?.parentElement;
+      let pointerDown: { x: number; y: number; at: number } | null = null;
       const move = (event: PointerEvent) => {
         const box = target.getBoundingClientRect();
+        if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return;
         pointer.x = (event.clientX - box.left) / box.width * 2 - 1;
         pointer.y = (event.clientY - box.top) / box.height * 2 - 1;
       };
-      target.onpointermove = move;
-      target.onpointerleave = () => { pointer.x = 0; pointer.y = 0; };
+      const down = (event: PointerEvent) => { pointerDown = event.target instanceof HTMLCanvasElement ? { x: event.clientX, y: event.clientY, at: performance.now() } : null; };
+      const up = (event: PointerEvent) => {
+        const start = pointerDown; pointerDown = null;
+        if (!start || !(event.target instanceof HTMLCanvasElement) || !flags.current.active || flags.current.reduced || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10 || performance.now() - start.at > 700) return;
+        const box = target.getBoundingClientRect();
+        const x = event.clientX - box.left, y = event.clientY - box.top;
+        if (x < 0 || y < 0 || x > box.width || y > box.height || !model) return;
+        const areas = model.hitTest(x, y);
+        // Older sample models have no named hit areas. Keep taps within their visible bounds useful.
+        if (!areas.length && !Object.keys(model.internalModel.hitAreas).length && model.getBounds().contains(x, y)) areas.push("Body");
+        const selected = interactionMotion(groups, areas);
+        if (selected) {
+          setAIStatus(`轻触角色：${selected}`);
+          void directedMotion(selected, 3, 5).catch(() => setAIStatus("触碰动作加载失败"));
+        } else if (areas.length) {
+          const index = expressionNames.findIndex(name => /smile|happy|笑|喜/i.test(name));
+          if (index >= 0) void model.expression(index).catch(() => setAIStatus("触碰表情加载失败"));
+          setAIStatus(`轻触角色：${areas.join("、")}`);
+        }
+      };
+      eventSurface?.addEventListener("pointermove", move);
+      eventSurface?.addEventListener("pointerdown", down);
+      eventSurface?.addEventListener("pointerup", up);
+      const leave = () => { pointer.x = 0; pointer.y = 0; pointerDown = null; };
+      eventSurface?.addEventListener("pointerleave", leave);
+      disposePointer = () => {
+        eventSurface?.removeEventListener("pointermove", move);
+        eventSurface?.removeEventListener("pointerdown", down);
+        eventSurface?.removeEventListener("pointerup", up);
+        eventSurface?.removeEventListener("pointerleave", leave);
+      };
       model.internalModel.on("beforeModelUpdate", () => {
         const s = useWorld.getState(), p = usePerformance.getState(), prefs = usePreferences.getState();
         const moving = !flags.current.reduced;
@@ -326,7 +360,7 @@ export default function Live2DStage({ url, active }: { url: string; active: bool
       if (useLive2DControl.getState().capabilities?.model_key === modelKey) useLive2DControl.setState({ capabilities: null });
       if (useCharacterCapabilities.getState().current?.url === url) useCharacterCapabilities.setState({ current: null });
       fitRef.current = null;
-      observer?.disconnect(); target.onpointermove = null; target.onpointerleave = null;
+      observer?.disconnect(); disposePointer?.();
       app?.destroy(true, { children: true, texture: true, baseTexture: true });
       if (!app) disposeModel();
       else model = undefined;
@@ -341,11 +375,11 @@ export default function Live2DStage({ url, active }: { url: string; active: bool
         void saveCubismCore(file).then(() => setRevision(value => value + 1)).catch(reason => setError(String(reason.message)));
       }} /></label><button onClick={() => setRevision(value => value + 1)}>重试加载</button></>}
     </div>}
-    {ready && <label className="live2d-zoom">人物大小
+    {ready && <details className="live2d-sizing"><summary aria-label="调整人物大小">缩放</summary><label className="live2d-zoom">人物大小
       <input aria-label="Live2D 人物大小" type="range" min="0.75" max="2" step="0.05" value={displayZoom}
         onChange={event => (fullscreen ? setFullscreenZoom : setZoom)(Number(event.target.value))} />
       <output>{Math.round(displayZoom * 100)}%</output>
-    </label>}
+    </label></details>}
     {ready && <details className="live2d-actions"><summary aria-label="展开角色动作面板">角色动作</summary><p role="status">{aiStatus}</p><p>{motions.some(name => /dance|舞/i.test(name)) ? "已检测到舞蹈动作组" : "模型未提供舞蹈动作组，音乐采用参数律动"}</p>
       <div>{motions.map(name => <button key={name} onClick={() => { void modelRef.current?.motion(name, undefined, 3).catch(() => setError("动作加载失败，请检查模型包")); }}>{name}</button>)}</div>
       <div>{expressions.map((name, index) => <button key={index} onClick={() => { void modelRef.current?.expression(index).catch(() => setError("表情加载失败")); }}>{name}</button>)}</div>

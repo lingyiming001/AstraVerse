@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { characters, useWorld } from "@/shared/state/workspaceStore";
 import AvatarModel from "@/features/stage/AvatarModel";
 import { isLive2D } from "@/features/live2d/cubismRuntime";
+import type { Resource } from "@/features/library/resources";
 const SceneEnvironment = lazy(() => import("@/features/scenes/SceneEnvironment"));
 const Live2DStage = lazy(() => import("@/features/live2d/Live2DStage"));
 import { getTheme } from "@/shared/preferences/themes";
@@ -286,11 +287,11 @@ function CameraRig() {
     />
   );
 }
-export default function Stage({ active = true }: { active?: boolean }) {
+export default function Stage({ active = true, clean = false, onSceneSelect }: { active?: boolean; clean?: boolean; onSceneSelect: (scene: Resource) => void }) {
   const { modelUrl, characterVisible } = useWorld();
   const [attempt, setAttempt] = useState(0);
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div className={characterVisible && isLive2D(modelUrl) ? "stage-with-live2d" : undefined} style={{ position: "relative", width: "100%", height: "100%" }}>
     <Canvas
       frameloop={active ? "always" : "never"}
       camera={{ position: [0, 2.8, 7.4], fov: 33 }}
@@ -301,9 +302,9 @@ export default function Stage({ active = true }: { active?: boolean }) {
         <World key={attempt} active={active} />
       </Suspense>
     </Canvas>
-    <StageExperiencePanel/>
+    {!clean && <StageExperiencePanel onSceneSelect={onSceneSelect}/>}
     {characterVisible && <EmotionEffects/>}
-    {characterVisible && !isLive2D(modelUrl) && <AvatarNotice onRetry={() => setAttempt(value => value + 1)} />}
+    {!clean && characterVisible && !isLive2D(modelUrl) && <AvatarNotice onRetry={() => setAttempt(value => value + 1)} />}
     {characterVisible && isLive2D(modelUrl) && <Suspense fallback={null}><Live2DStage url={modelUrl!} active={active} /></Suspense>}
     </div>
   );

@@ -20,3 +20,14 @@ test('direct video URLs retain signed queries; arbitrary pages use web fallback'
 test('reject invalid, executable and credential-bearing URLs',()=>{
  for(const url of ['javascript:alert(1)','file:///tmp/a.mp4','data:text/html,hi','https://user:password@example.com/a.mp4','not a url','https://www.bilibili.com/video/bad','https://player.bilibili.com/player.html?bvid=bad'])assert.throws(()=>parseVideoUrl(url));
 });
+const subtitleFile=new URL('../src/features/watch/subtitles.ts',import.meta.url);
+const subtitleJs=ts.transpileModule(await readFile(subtitleFile,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {parseSubtitles,subtitleAt}=await import('data:text/javascript;base64,'+Buffer.from(subtitleJs).toString('base64'));
+test('SRT/VTT cues follow time and only expose nearby lines',()=>{
+ const cues=parseSubtitles('WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n第一句\n\n2\n00:00:20,000 --> 00:00:22,000\n第二句');
+ assert.equal(cues.length,2);
+ assert.equal(subtitleAt(cues,2),'第一句');
+ assert.equal(subtitleAt(cues,20),'第二句');
+ assert.equal(subtitleAt(cues,100),'');
+ assert.throws(()=>parseSubtitles('invalid subtitles'));
+});

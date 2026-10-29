@@ -1420,7 +1420,7 @@
 
 /* Live2D owns its transparent 2D canvas, while the existing world remains behind it. */
 .live2d-stage{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.live2d-canvas{position:absolute;inset:0;pointer-events:auto}
+.live2d-canvas{position:absolute;inset:0;pointer-events:none}
 .live2d-canvas canvas{display:block;width:100%;height:100%}
 .live2d-status{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);width:min(420px,85%);padding:24px;border:1px solid var(--border,#d8dce4);border-radius:20px;background:var(--surface,#fff);color:var(--text,#243044);box-shadow:0 16px 50px #0002;pointer-events:auto;font-size:13px;line-height:1.7}
 .live2d-status a,.live2d-import{display:inline-flex;margin:8px 10px 8px 0;cursor:pointer;text-decoration:underline}
@@ -1428,12 +1428,9 @@
 .live2d-actions{position:absolute;left:20px;top:70px;max-width:320px;padding:12px 16px;border-radius:14px;background:var(--surface,#fff);color:var(--text,#243044);border:1px solid var(--border,#d8dce4);pointer-events:auto;font-size:12px;max-height:45%;overflow:auto}
 .live2d-actions summary{cursor:pointer}.live2d-actions button,.live2d-status button{padding:7px 10px;margin:4px;border:1px solid var(--border,#d8dce4);border-radius:8px;background:transparent;color:inherit;cursor:pointer}
 
-.live2d-setup{margin:0 0 24px;padding:24px;border:1px solid var(--border,#d8dce4);border-radius:20px;background:var(--surface,#fff);color:var(--text,#243044)}
-.live2d-setup h2{margin:8px 0;font-size:21px}.live2d-setup p{font-size:13px;line-height:1.7;color:var(--text-secondary,#515c68)}
-.live2d-setup-steps{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px}
-.live2d-setup-steps>div{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border:1px solid var(--border,#d8dce4);border-radius:14px}
-.live2d-setup-steps span,.live2d-setup-steps small{font-size:12px;line-height:1.7;color:var(--text-secondary,#515c68)}.live2d-setup-steps a{font-size:13px;color:inherit;text-decoration:underline}
-@media(max-width:700px){.live2d-setup-steps{grid-template-columns:1fr}.live2d-setup{padding:18px}}
+.character-import-info{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary)}
+.character-core-settings{position:relative;font-size:12px}.character-core-settings summary{cursor:pointer;color:var(--accent);white-space:nowrap}.character-core-settings[open]{width:100%}.character-core-settings>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0 2px}.character-core-settings p{margin:0;line-height:1.5}.character-core-settings a{color:var(--accent)}
+.character-core-import{position:relative;display:inline-flex;align-items:center;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer;white-space:nowrap}.character-core-import input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.character-core-import:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 
 .character-type-tabs{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border,#d8dce4);flex-wrap:wrap}
 .character-type-tabs button{display:flex;align-items:center;gap:10px;padding:11px 18px;border:1px solid var(--border,#d8dce4);border-radius:12px;background:var(--surface,#fff);color:var(--muted,#637082);cursor:pointer;font-weight:600}
@@ -1448,8 +1445,10 @@
 .composer-status.has-error{color:var(--danger,#b94e4e)}
 
 .stage-experience{position:absolute;left:16px;bottom:16px;z-index:4;max-width:min(280px,calc(100% - 32px));padding:8px 12px;border:1px solid var(--border);border-radius:16px;background:var(--surface,#fff);color:var(--text);font-size:11px;box-shadow:0 4px 16px #0000000c}
+.stage-with-live2d>.stage-experience{bottom:72px}
 .stage-experience summary{cursor:pointer;line-height:24px;min-height:24px}
-.stage-experience[open]{width:260px;border-radius:14px}
+.stage-experience[open]{width:260px;max-height:calc(100% - 88px);overflow:auto;overscroll-behavior:contain;border-radius:14px}
+.stage-experience[open] summary{position:sticky;top:-8px;z-index:1;background:var(--surface,#fff)}
 .stage-experience label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}
 .stage-experience input{accent-color:var(--accent)}
 .stage-experience select{max-width:145px;font-size:11px;color:inherit;background:var(--surface-soft);border:1px solid var(--border);padding:6px;border-radius:7px}
@@ -1585,3 +1584,4 @@
 .live2d-zoom input{width:90px;min-width:0;accent-color:var(--accent,#537a65)}
 .live2d-zoom output{min-width:34px;text-align:right}
 @media(max-width:480px){.live2d-zoom{bottom:58px}}
+@media(max-width:480px){.stage-with-live2d>.stage-experience{bottom:116px}.stage-with-live2d>.stage-experience[open]{max-height:calc(100% - 132px)}}

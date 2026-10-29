@@ -1,8 +1,14 @@
+import RagPanel from "@/features/rag/RagPanel";
 import { isLive2D } from "@/features/live2d/cubismRuntime";
-import Live2DSetup from "@/features/live2d/Live2DSetup";
-import { useEffect, useState } from "react";
+import Live2DCoreSettings from "@/features/live2d/Live2DCoreSettings";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import ActionMenu from "@/shared/ui/ActionMenu";
+import PanelDialog from "@/shared/ui/PanelDialog";
+import { filterResourceList, type ResourceSort } from "./resourceList";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   BookOpen,
   Pencil,
   RefreshCw,
@@ -25,6 +31,8 @@ import {
   X,
 } from "lucide-react";
 import BookPreview from "@/features/library/BookPreview";
+import { useWorld } from '@/shared/state/workspaceStore';
+import ResourceAccess from "@/features/library/ResourceAccess";
 import type { Resource, ResourceKind } from "@/features/library/resources";
 const labels: Record<ResourceKind, string> = {
   music: "音乐",
@@ -95,7 +103,7 @@ export default function ResourcePage({
           ? "music"
           : page === "书籍库"
             ? "book"
-            : null;
+            : page === "视频库" ? "video" : null;
   const [editing, setEditing] = useState<Resource | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -107,6 +115,10 @@ export default function ResourcePage({
   const [source, setSource] = useState("all");
   const [characterType, setCharacterType] = useState<"3d" | "live2d">("live2d");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sort, setSort] = useState<ResourceSort>("default");
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+  const handledReveal = useRef<string | null>(null);
   useEffect(() => {
     if (revealId) {
       setExpanded(revealId);
@@ -118,20 +130,25 @@ export default function ResourcePage({
     }
   }, [revealId]);
   const kind = category || filter;
-  const shown = resources.filter(
-    (r) =>
-      (kind === "all" || r.kind === kind) &&
-      (source === "all" || r.source === source) &&
-      (kind !== "character" || (isLive2D(r.url) ? "live2d" : "3d") === characterType) &&
-      `${r.name} ${r.description} ${r.filename || ""}`
-        .toLowerCase()
-        .includes(query.trim().toLowerCase()),
-  );
+  const shown = useMemo(() => filterResourceList(resources, { kind, source, query, characterType, sort }), [resources, kind, source, query, characterType, sort]);
+  const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const displayed = shown.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const matchingIds = shown.map(r => r.id).join("|");
+  const filtered = !!query.trim() || source !== "all" || (!category && filter !== "all");
+  useEffect(() => { setCurrentPage(1); }, [query, source, filter, characterType, sort, pageSize]);
+  useEffect(() => { setCurrentPage(page => Math.min(page, totalPages)); }, [totalPages]);
+  useEffect(() => {
+    if (!revealId) { handledReveal.current = null; return; }
+    if (handledReveal.current === revealId) return;
+    const index = shown.findIndex(r => r.id === revealId);
+    if (index >= 0) { setCurrentPage(Math.floor(index / pageSize) + 1); handledReveal.current = revealId; }
+  }, [revealId, matchingIds, pageSize]);
+  function clearFilters() { setQuery(""); setSource("all"); setFilter("all"); }
   return (
     <main className="resource-page">
       <div className="resource-page-heading">
         <div>
-          <span className="eyebrow">YOUR CREATIVE COLLECTION</span>
           <h1>
             {page}
             <span>
@@ -140,22 +157,23 @@ export default function ResourcePage({
           </h1>
           <p>
             {category === "character"
-              ? "选择一位伙伴，让新的故事从此开始。支持 VRM、GLB 与 Live2D ZIP 模型包。"
+              ? "管理角色模型，选择在舞台上使用的伙伴。"
               : category === "scene"
-                ? "收藏喜欢的风景，随时出发。"
+                ? "管理场景资源，快速切换舞台环境。"
                 : category === "music"
-                  ? "把喜欢的旋律带进空间，也可以让伙伴为你选歌。"
+                  ? "管理音乐与歌词，控制舞台播放。"
                   : category === "book"
-                    ? "收藏你的书籍。支持TXT、Markdown、PDF与EPUB；文本和PDF可在此预览。"
-                    : "角色、场景、音乐、书籍、图片、视频与歌词，统一收藏，随时取用。"}
+                    ? "管理电子书，继续阅读或查看已导入的原文。"
+                    : category === "video" ? "管理本地视频，展开查看或送到创作空间陪看。" : "集中管理角色、场景与素材，供聊天、阅读和直播使用。"}
           </p>
         </div>
-        <button className="secondary" onClick={onStudio}>
-          <ArrowLeft size={15} />
-          回到舞台
-        </button>
+        <div className="resource-heading-actions">
+          <button className="secondary" onClick={onStudio}><ArrowLeft size={15} />返回舞台</button>
+          {category ? <button className="primary" onClick={() => onUpload(category)}><Plus size={15} />{category === "character" ? "导入模型" : `导入${labels[category]}`}</button> :
+            <ActionMenu label="选择导入的资源类型" text="导入资源" icon={<Plus size={15} />} items={kinds.map(k => ({ label: `导入${k === "character" ? "模型" : labels[k]}`, icon: <Upload size={14} />, onSelect: () => onUpload(k) }))} />}
+        </div>
       </div>
-      {(category === "character" || (!category && (filter === "all" || filter === "character"))) && <Live2DSetup resources={resources} onUpload={() => onUpload("character")} onUse={onUse} />}
+      {(!category || category === "book") && <RagPanel resources={resources} />}
       <section className="collection-panel">
         <div className="collection-toolbar">
           <div className="collection-tabs">
@@ -202,43 +220,28 @@ export default function ResourcePage({
               <option value="builtin">内置资源</option>
               <option value="upload">我的导入</option>
             </select>
-            {category && (
-              <button className="primary" onClick={() => onUpload(category)}>
-                <Plus size={15} />
-                导入{labels[category]}
-              </button>
-            )}
+            <select aria-label="资源排序" value={sort} onChange={e => setSort(e.target.value as ResourceSort)}><option value="default">默认排序</option><option value="name-asc">名称 A–Z</option><option value="name-desc">名称 Z–A</option></select>
+            {filtered && <button className="resource-clear-filters" onClick={clearFilters}>清除筛选</button>}
           </div>
         </div>
         {kind === "character" && <div className="character-type-tabs" role="group" aria-label="角色类型">
           {(["3d", "live2d"] as const).map(type => <button key={type} className={characterType === type ? "selected" : ""} aria-pressed={characterType === type} onClick={() => setCharacterType(type)}>
             {type === "3d" ? "3D 角色" : "Live2D 角色"}<span>{resources.filter(resource => resource.kind === "character" && (isLive2D(resource.url) ? "live2d" : "3d") === type).length}</span>
           </button>)}
-          <small>{characterType === "3d" ? "VRM / GLB · 立体骨骼与全身动作" : "Cubism · 二维表情与模型动作，需要官方 Core"}</small>
+          <small>{characterType === "3d" ? "VRM / GLB · 立体骨骼与全身动作" : "Live2D ZIP · 二维表情与模型动作"}</small>
         </div>}
-        {!category && (
-          <div className="collection-imports">
-            <span>导入到资源库</span>
-            {kinds.map((k) => (
-              <button key={k} onClick={() => onUpload(k)}>
-                <Upload size={13} />
-                {labels[k]}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="collection-list-header">
-          <span>资源名称</span>
-          <span>类型与来源</span>
-          <span>状态</span>
-          <span>操作</span>
-        </div>
+        {kind === "character" && <details className="resource-help"><summary>模型导入说明与 Live2D 运行环境</summary><div className="character-import-info">
+          <span>统一导入 VRM、GLB 或 Live2D ZIP；ZIP 需包含 model3.json、moc3 与贴图。导入后会显示在对应类型中。</span>
+          {characterType === "live2d" && <Live2DCoreSettings hasSamples={resources.some(resource => resource.id === "live2d-mao-pro" || resource.id === "live2d-shizuku")} />}
+        </div></details>}
         {editing && (
-          <section className="resource-edit-card">
-            <h3>编辑资源</h3>
+          <PanelDialog title={`编辑资源 · ${editing.name}`} onClose={() => setEditing(null)} busy={mutating}>
+            <ResourceAccess key={editing.id} id={editing.id} />
             <label className="field">
               名称
               <input
+                data-dialog-focus
+                disabled={mutating}
                 maxLength={editing.kind === "character" ? 40 : 180}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -248,14 +251,16 @@ export default function ResourcePage({
               描述
               <textarea
                 rows={3}
+                disabled={mutating}
                 maxLength={300}
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
               />
             </label>
-            <p>修改名称与描述不会改变原文件。角色改名也会同步到角色 Agent。</p>
-            <div>
-              <button disabled={mutating} onClick={() => setEditing(null)}>
+            <p className="product-dialog-note">修改名称和描述会保留原文件，角色名称同步到角色设置。</p>
+            {operationError && <p role="alert" className="settings-feedback error">{operationError}</p>}
+            <div className="product-dialog-actions">
+              <button className="secondary" disabled={mutating} onClick={() => setEditing(null)}>
                 取消
               </button>
               <button
@@ -272,6 +277,8 @@ export default function ResourcePage({
                     )
                       setEditing(null);
                     else setOperationError("保存失败，请重试");
+                  } catch (error) {
+                    setOperationError(error instanceof Error ? error.message : "保存失败，请重试");
                   } finally {
                     setMutating(false);
                   }
@@ -280,20 +287,22 @@ export default function ResourcePage({
                 保存修改
               </button>
             </div>
-          </section>
+          </PanelDialog>
         )}
         {deleting && (
-          <section className="resource-edit-card" role="alert">
-            <h3>删除「{deleting.name}」？</h3>
+          <PanelDialog title={`删除「${deleting.name}」？`} danger busy={mutating} onClose={() => setDeleting(null)}>
             <p>
               {deleting.source === "builtin"
                 ? "从当前浏览器资源库移除内置资源，刷新后不会重新出现。"
                 : "删除此浏览器中保存的资源文件。"}
               {deleting.kind === "character"
-                ? "角色 Agent 配置与聊天档案保留。"
+                ? "角色设置与聊天记录会保留。"
                 : ""}
+              {deleting.kind === "book" ? "本机保存的书籍全文和所有角色的阅读位置也会删除。" : ""}
             </p>
-            <button disabled={mutating} onClick={() => setDeleting(null)}>
+            {operationError && <p role="alert" className="settings-feedback error">{operationError}</p>}
+            <div className="product-dialog-actions">
+            <button className="secondary" data-dialog-focus disabled={mutating} onClick={() => setDeleting(null)}>
               取消
             </button>
             <button
@@ -306,6 +315,8 @@ export default function ResourcePage({
                     setDeleting(null);
                     if (editing?.id === deleting.id) setEditing(null);
                   } else setOperationError("删除失败，请重试");
+                } catch (error) {
+                  setOperationError(error instanceof Error ? error.message : "删除失败，请重试");
                 } finally {
                   setMutating(false);
                 }
@@ -313,220 +324,72 @@ export default function ResourcePage({
             >
               确认删除
             </button>
-          </section>
+            </div>
+          </PanelDialog>
         )}
-        {operationError && (
+        {operationError && !editing && !deleting && (
           <p role="alert" className="settings-feedback error">
             {operationError}
           </p>
         )}
-        <div className="collection-list">
-          {shown.map((r) => {
-            const Icon = icons[r.kind];
-            const active = activeIds.includes(r.id);
-            const preview =
-              r.kind === "image" || r.kind === "video" || r.kind === "book";
-            return (
-              <article
-                className={`collection-row ${active ? "is-active" : ""}`}
-                key={r.id}
-              >
-                <div className="collection-name">
-                  <span className={`collection-thumbnail ${r.kind}`}>
-                    {r.thumbnail || (r.kind === "image" && r.url) ? (
-                      <img
-                        src={r.thumbnail || r.url}
-                        alt={r.name}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <Icon size={23} />
-                    )}
-                  </span>
-                  <div>
-                    <h3>{r.name}</h3>
-                    <p>{r.description}</p>
-                    {r.license && (
-                      <div className="model-source">
-                        <span>{r.license}</span>
-                        <span>{r.author}</span>
-                        {r.sourceUrl && (
-                          <a
-                            href={r.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            模型来源 <ArrowUpRight size={10} />
-                          </a>
-                        )}
-                      </div>
-                    )}
-                    {r.duration !== undefined && (
-                      <small>
-                        <Clock3 size={10} />
-                        {Math.floor(r.duration / 60)}:
-                        {String(Math.floor(r.duration % 60)).padStart(2, "0")}
-                      </small>
-                    )}
-                  </div>
-                </div>
-                <div className="collection-meta">
-                  <span>{r.kind === "character" ? isLive2D(r.url) ? "Live2D" : "3D · VRM / GLB" : labels[r.kind]}</span>
-                  <small>
-                    {r.source === "builtin"
-                      ? "AstraVerse 内置"
-                      : r.persistent === false
-                        ? "会话导入"
-                        : "本地资源库"}
-                  </small>
-                </div>
-                <div className="collection-state">
-                  {active ? (
-                    <span>
-                      <i />
-                      {r.kind === "music"
-                        ? playing
-                          ? "正在播放"
-                          : "已选中"
-                        : "正在使用"}
-                    </span>
-                  ) : (
-                    <small>可用</small>
-                  )}
-                </div>
-                <div className="collection-row-actions">
-                  <button
-                    className={
-                      active && r.kind !== "music" ? "secondary" : "primary"
-                    }
-                    onClick={() =>
-                      preview
-                        ? setExpanded(expanded === r.id ? null : r.id)
-                        : active && r.kind === "music" && playing
-                          ? onPause()
-                          : onUse(r)
-                    }
-                  >
-                    {preview ? (
-                      expanded === r.id ? (
-                        <X size={13} />
-                      ) : (
-                        <ArrowUpRight size={13} />
-                      )
-                    ) : r.kind === "music" ? (
-                      active && playing ? (
-                        <Pause size={13} />
-                      ) : (
-                        <Play size={13} />
-                      )
-                    ) : active ? (
-                      <Check size={13} />
-                    ) : (
-                      <ArrowUpRight size={13} />
-                    )}
-                    {preview
-                      ? expanded === r.id
-                        ? "收起"
-                        : r.kind === "book"
-                          ? "阅读"
-                          : "预览"
-                      : r.kind === "music"
-                        ? active && playing
-                          ? "暂停"
-                          : "播放"
-                        : r.kind === "scene"
-                          ? "进入场景"
-                          : r.kind === "lyrics"
-                            ? "应用歌词"
-                            : "使用角色"}
-                  </button>
-                  <button
-                    aria-label={`编辑${r.name}`}
-                    title="编辑资源信息"
-                    onClick={() => {
-                      setEditing(r);
-                      setEditName(r.name);
-                      setEditDescription(r.description);
-                      setOperationError("");
-                    }}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    aria-label={`替换${r.name}的文件`}
-                    title="替换源文件，保留资源ID"
-                    onClick={() => onReplace(r)}
-                  >
-                    <RefreshCw size={14} />
-                  </button>
-                  {
-                    <button
-                      className="collection-delete"
-                      aria-label={`删除${r.name}`}
-                      title="从本地资源库删除"
-                      onClick={() => {
-                        setDeleting(r);
-                        setOperationError("");
-                      }}
-                    >
-                      <Trash2 size={14} />
+        <div className="resource-results-heading"><span>{filtered ? `筛选结果 ${shown.length} 项` : `全部 ${shown.length} 项`}</span><small>名称 · 类型 · 来源 · 状态</small></div>
+        <div className="resource-table-scroll" role="region" aria-label={`${page}列表，可横向滚动`} tabIndex={0}>
+          <table className="resource-table">
+            <caption className="product-sr-only">{page}资源列表，共{shown.length}项</caption>
+            <colgroup><col className="resource-name-col" /><col className="resource-type-col" /><col className="resource-source-col" /><col className="resource-status-col" /><col className="resource-actions-col" /></colgroup>
+            <thead><tr><th scope="col">资源名称</th><th scope="col">类型</th><th scope="col">来源</th><th scope="col">状态</th><th scope="col" className="resource-actions-heading">操作</th></tr></thead>
+            <tbody>{displayed.map(r => {
+              const Icon = icons[r.kind];
+              const active = activeIds.includes(r.id);
+              const preview = ["image", "video", "book"].includes(r.kind);
+              const verb = preview ? expanded === r.id ? "收起" : r.kind === "book" ? "阅读" : "预览" : r.kind === "music" ? active && playing ? "暂停" : "播放" : r.kind === "scene" ? "进入场景" : r.kind === "lyrics" ? "应用歌词" : active ? "使用中" : "使用角色";
+              return <Fragment key={r.id}>
+                <tr className={active ? "is-active" : undefined}>
+                  <td><div className="resource-cell-name">
+                    <span className={`resource-cell-thumb ${r.kind}`}>{r.thumbnail || (r.kind === "image" && r.url) ? <img src={r.thumbnail || r.url} alt="" loading="lazy" /> : <Icon size={21} />}</span>
+                    <div><h3 title={r.name}>{r.name}</h3><p title={r.description}>{r.description || "暂无描述"}</p>
+                      {r.license && <div className="model-source"><span>{r.license}</span>{r.author && <span>{r.author}</span>}{r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noreferrer">模型来源 <ArrowUpRight size={11} /></a>}</div>}
+                      {r.duration !== undefined && <small className="resource-duration"><Clock3 size={11} />{Math.floor(r.duration / 60)}:{String(Math.floor(r.duration % 60)).padStart(2, "0")}</small>}
+                    </div>
+                  </div></td>
+                  <td><span className="resource-kind-label">{r.kind === "character" ? isLive2D(r.url) ? "Live2D" : "3D 模型" : labels[r.kind]}</span></td>
+                  <td><span className="resource-source-label">{r.source === "builtin" ? "内置" : r.persistent === false ? "当前会话" : "我的导入"}</span></td>
+                  <td><span className={`resource-status-label${active ? " is-active" : ""}`}>{active && <i />}{active ? r.kind === "music" ? playing ? "播放中" : "已选中" : "使用中" : "可用"}</span></td>
+                  <td><div className="resource-row-actions">
+                    <button className={`resource-use-button${active ? " is-active" : ""}`} aria-label={`${verb}${r.name}`} onClick={() => preview ? setExpanded(expanded === r.id ? null : r.id) : active && r.kind === "music" && playing ? onPause() : onUse(r)}>
+                      {preview ? expanded === r.id ? <X size={14} /> : <ArrowUpRight size={14} /> : r.kind === "music" ? active && playing ? <Pause size={14} /> : <Play size={14} /> : active ? <Check size={14} /> : <ArrowUpRight size={14} />}{verb}
                     </button>
-                  }
-                </div>
-                {preview && expanded === r.id && (
-                  <div className="collection-preview">
-                    {r.kind === "book" ? (
-                      <BookPreview resource={r} />
-                    ) : r.kind === "image" ? (
-                      <img src={r.url} alt={r.name} />
-                    ) : (
-                      <button onClick={() => onUse(r)}>在创作空间陪看</button>
-                    )}
-                    <p>{r.name} · 仅在当前浏览器预览</p>
-                  </div>
-                )}
-              </article>
-            );
-          })}
+                    <ActionMenu label={`更多操作：${r.name}`} items={[
+                      { label: "在新窗口打开", icon: <ArrowUpRight size={14} />, onSelect: () => {
+                        const query = new URLSearchParams({view:'reader',book:r.id,file:r.url || '',title:r.name,filename:r.filename || r.name,kind:r.kind,agent:useWorld.getState().actorId,preset:r.preset || '',characterIndex:String(r.characterIndex ?? '')});
+                        window.open(`/?${query}`, '_blank', 'popup,width=1100,height=850,noopener,noreferrer');
+                      } },
+                      { label: "编辑信息与权限", icon: <Pencil size={14} />, onSelect: () => { setEditing(r); setEditName(r.name); setEditDescription(r.description); setOperationError(""); setDeleting(null); } },
+                      { label: "替换源文件", icon: <RefreshCw size={14} />, onSelect: () => onReplace(r) },
+                      { label: "删除资源", icon: <Trash2 size={14} />, danger: true, onSelect: () => { setDeleting(r); setOperationError(""); setEditing(null); } },
+                    ]} />
+                  </div></td>
+                </tr>
+                {preview && expanded === r.id && <tr className="resource-preview-row"><td colSpan={5}><div className="collection-preview">
+                  {r.kind === "book" ? <BookPreview resource={r} /> : r.kind === "image" ? <img src={r.url} alt={r.name} /> : <button className="secondary" onClick={() => onUse(r)}>在创作空间陪看</button>}
+                  <p>{r.name} · 本地预览</p>
+                </div></td></tr>}
+              </Fragment>;
+            })}
+            {!shown.length && <tr><td colSpan={5}><div className="collection-empty"><FolderOpen size={32} /><h3>{filtered ? "没有找到匹配资源" : "这里还没有资源"}</h3><p>{filtered ? "试试其他关键词，或清除筛选条件。" : "导入一个文件，开始整理你的创作素材。"}</p>
+              {filtered ? <button className="secondary" onClick={clearFilters}>清除筛选</button> : kind !== "all" && <button className="primary" onClick={() => onUpload(kind)}><Plus size={14} />{kind === "character" ? "导入模型" : `导入${labels[kind]}`}</button>}
+            </div></td></tr>}
+            </tbody>
+          </table>
         </div>
-        {!shown.length && (
-          <div className="collection-empty">
-            <FolderOpen size={34} />
-            <h3>{query ? "没有找到匹配资源" : "还没有这类资源"}</h3>
-            <p>
-              {query
-                ? "换个关键词试试，或清除来源筛选。"
-                : "导入喜欢的资源，收藏到你的空间。"}
-            </p>
-            {kind !== "all" && (
-              <button className="secondary" onClick={() => onUpload(kind)}>
-                导入{labels[kind]}
-              </button>
-            )}
+        <div className="resource-pagination">
+          <span role="status">{shown.length ? `显示 ${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, shown.length)}，共 ${shown.length} 项` : "0 项资源"}</span>
+          <div><label>每页<select aria-label="每页显示数量" value={pageSize} onChange={e => setPageSize(Number(e.target.value))}><option value={20}>20 项</option><option value={50}>50 项</option><option value={100}>100 项</option></select></label>
+            <button aria-label="上一页" disabled={safePage === 1} onClick={() => setCurrentPage(safePage - 1)}><ChevronLeft size={16} /></button><span aria-label="当前页">{safePage} / {totalPages}</span><button aria-label="下一页" disabled={safePage === totalPages} onClick={() => setCurrentPage(safePage + 1)}><ChevronRight size={16} /></button>
           </div>
-        )}
-        <div className="collection-footer">
-          <span>
-            显示 {shown.length} / {resources.length} 项 ·
-            导入文件保存在此浏览器，清除站点数据会删除
-          </span>
-          {category === "music" && (
-            <button onClick={onLyrics}>
-              导入 LRC 歌词 <Upload size={12} />
-            </button>
-          )}
         </div>
       </section>
-      <div className="collection-chat-tip">
-        <span>✧</span>
-        <div>
-          <strong>让伙伴帮你选择</strong>
-          <p>说“放一首歌”“换个场景”或“换个角色”，伙伴会列出资源供你选择。</p>
-        </div>
-        <button onClick={onStudio}>
-          去聊聊 <ArrowUpRight size={14} />
-        </button>
-      </div>
+      <div className="resource-page-footnote"><span>导入文件保存在当前浏览器，书籍全文与阅读进度另存本机服务。</span>{category === "music" && <button onClick={onLyrics}>导入 LRC 歌词 <Upload size={12} /></button>}<button onClick={onStudio}>在舞台使用资源 <ArrowUpRight size={12} /></button></div>
     </main>
   );
 }

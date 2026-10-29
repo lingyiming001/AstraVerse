@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Resource } from "@/features/library/resources";
+import BookReadingControls from "./BookReadingControls";
 export default function BookPreview({ resource }: { resource: Resource }) {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -42,10 +43,11 @@ export default function BookPreview({ resource }: { resource: Resource }) {
   }, [resource.url, extension]);
   return (
     <div className="book-reader">
+      <BookReadingControls resource={resource} />
       {extension === "pdf" ? (
         <iframe src={resource.url} title={`阅读${resource.name}`} />
       ) : extension === "epub" ? (
-        <p>EPUB 已保存在书籍库，请下载后用电子书阅读器打开。</p>
+        <p>EPUB 可使用上方整本朗读，按电子书章节顺序继续阅读。</p>
       ) : (
         <>
           {loading ? (

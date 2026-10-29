@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useStageDisclosure } from "@/shared/ui/useStageDisclosure";
+import { useEffect, useState } from "react";
 import { useWorld, type Expression } from "@/shared/state/workspaceStore";
 import { useCharacterCapabilities } from "@/shared/state/characterCapabilities";
 import { availableAbilities, applyCharacterAbility } from "./characterAbilities";
@@ -7,12 +8,13 @@ import { pauseAutomaticPerformance, usePerformance } from "./performance";
 import "./abilities.css";
 export default function CharacterAbilities({active}:{active:boolean}) {
   const s=useWorld(),cap=useCharacterCapabilities(state=>state.current),[notice,setNotice]=useState("");
-  const details=useRef<HTMLDetailsElement>(null);
+  const details=useStageDisclosure();
   useEffect(()=>{setNotice("");if(details.current){details.current.open=false;const panel=details.current.querySelector(".ability-popover");if(panel)panel.scrollTop=0;}},[s.actorId]);
   useEffect(()=>{if(!active){stopHumming();useWorld.getState().set({walkMode:false});}return stopHumming;},[active]);
   const abilities=availableAbilities();
   const apply=async (value:string)=>{const ok=await applyCharacterAbility(value);setNotice(ok ? "" : "当前角色、场景或浏览器不支持这个能力");};
   return <details ref={details} className="character-abilities"><summary>能力与配件</summary><div className="ability-popover">
+    <button type="button" className="stage-panel-close" aria-label="收起能力与配件" onClick={()=>{if(details.current)details.current.open=false;}}>收起 ×</button>
     <strong>面部表情</strong><div className="ability-buttons">
       {([['neutral','自然'],['happy','开心'],['curious','好奇'],['sad','难过'],['surprised','惊讶'],['relaxed','放松']] as [Expression,string][]).map(([id,label])=><button key={id} aria-pressed={s.expression===id} onClick={()=>{pauseAutomaticPerformance();s.set({expression:id});}}>{label}</button>)}
       <button disabled={!cap?.canWearHeadphones} onClick={()=>{pauseAutomaticPerformance();usePerformance.setState({wink:{side:"left",started:performance.now()}});}}>眨左眼</button>

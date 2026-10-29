@@ -811,25 +811,15 @@
   box-shadow: var(--shadow-elevated);
   color-scheme: inherit;
 }
-.app.companion-layout .live2d-setup {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--border);
-}
-.app.companion-layout .live2d-setup-steps > div {
-  background: var(--surface-soft);
-  border-color: var(--border-strong);
-}
-.app.companion-layout :is(.live2d-setup, .live2d-status, .live2d-actions) :is(h2, strong, summary) {
+.app.companion-layout :is(.live2d-status, .live2d-actions) :is(h2, strong, summary) {
   color: var(--text);
   opacity: 1;
 }
-.app.companion-layout :is(.live2d-setup, .live2d-status, .live2d-actions) :is(p, small),
-.app.companion-layout .live2d-setup-steps span {
+.app.companion-layout :is(.live2d-status, .live2d-actions) :is(p, small) {
   color: var(--text-secondary);
   opacity: 1;
 }
-.app.companion-layout :is(.live2d-setup, .live2d-status) a {
+.app.companion-layout .live2d-status a {
   color: var(--accent);
   opacity: 1;
   text-underline-offset: 3px;
